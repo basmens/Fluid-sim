@@ -515,7 +515,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2369cb914345342478f0b3bb275a92ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particlesPerAxis: 10
+  particlesPerAxis: 30
   particlePrefab: {fileID: 4965801403988837845, guid: 623e672fe47809c42867bf4f04593f6f, type: 3}
 --- !u!4 &1659313790
 Transform:

@@ -3,8 +3,9 @@ using UnityEngine;
 public class Simulation : MonoBehaviour
 {
     [Header("Init")]
-    public int particlesPerAxis;
+    public Spawner spawner;
     public GameObject particlePrefab;
+    public Vector3 size;
 
     Vector3[] particlePositions;
     Vector3[] particleVelocities;
@@ -17,37 +18,24 @@ public class Simulation : MonoBehaviour
 
     void Initialize()
     {
-        int numParticles = particlesPerAxis * particlesPerAxis * particlesPerAxis;
-        particlePositions = new Vector3[numParticles];
-        particleVelocities = new Vector3[numParticles];
+        Spawner.SpawnData spawnData = spawner.Spawn();
+        particlePositions = spawnData.position;
+        particleVelocities = spawnData.velocity;
+        int numParticles = particlePositions.Length;
+
         particles = new GameObject[numParticles];
 
-        int i = 0;
-        for (int x = 0; x < particlesPerAxis; x++)
+        for (int i = 0; i < numParticles; i++)
         {
-            float px = (float)x / (particlesPerAxis - 1) - 0.5f;
-            for (int y = 0; y < particlesPerAxis; y++)
-            {
-                float py = (float)y / (particlesPerAxis - 1) - 0.5f;
-                for (int z = 0; z < particlesPerAxis; z++)
-                {
-                    float pz = (float)z / (particlesPerAxis - 1) - 0.5f;
-                    particlePositions[i] = new Vector3(px, py, pz);
-                    particleVelocities[i] = Vector3.zero;
-
-                    GameObject particle = Instantiate(particlePrefab, transform);
-                    particle.transform.localPosition = particlePositions[i];
-                    particles[i] = particle;
-
-                    i++;
-                }
-            }
+            GameObject particle = Instantiate(particlePrefab, transform);
+            particle.transform.localPosition = particlePositions[i];
+            particles[i] = particle;
         }
     }
 
     void Update()
     {
-        Debug.Log(particlePositions.Length);
+        // Debug.Log(particlePositions.Length);
     }
 
     void OnDrawGizmos()
@@ -56,7 +44,7 @@ public class Simulation : MonoBehaviour
         var m = Gizmos.matrix;
         Gizmos.matrix = transform.localToWorldMatrix;
         Gizmos.color = new Color(0, 1, 0, 0.5f);
-        Gizmos.DrawWireCube(Vector3.zero, Vector3.one);
+        Gizmos.DrawWireCube(Vector3.zero, size);
         Gizmos.matrix = m;
     }
 }
