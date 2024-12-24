@@ -56,5 +56,8 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "Fluid sim.sln"
+    "dotnet.defaultSolution": "Fluid sim.sln",
+    "cSpell.words": [
+        "Mathf"
+    ]
 }
