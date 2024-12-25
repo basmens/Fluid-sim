@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class Simulation : MonoBehaviour
@@ -5,18 +6,21 @@ public class Simulation : MonoBehaviour
     [Header("Init")]
     public Spawner spawner;
     public GameObject particlePrefab;
-    public Vector3 size;
 
     [Header("Time step")]
     public float maxTimeStepFPS = 60;
     public float iterationsPerFrame = 3;
+    public bool paused = false;
+    public bool pauseNextFrame = false;
 
     [Header("Simulation")]
-    public Vector3 gravity = new Vector3(0, -9.81f, 0);
+    public Vector3 gravity = new(0, -9.81f, 0);
 
+    int numParticles;
     Vector3[] particlePositions;
     Vector3[] particleVelocities;
     GameObject[] particles;
+    Vector3 Size => transform.localScale;
 
     void Start()
     {
@@ -28,13 +32,13 @@ public class Simulation : MonoBehaviour
         Spawner.SpawnData spawnData = spawner.Spawn();
         particlePositions = spawnData.position;
         particleVelocities = spawnData.velocity;
-        int numParticles = particlePositions.Length;
+        numParticles = particlePositions.Length;
 
         particles = new GameObject[numParticles];
 
         for (int i = 0; i < numParticles; i++)
         {
-            GameObject particle = Instantiate(particlePrefab, transform);
+            GameObject particle = Instantiate(particlePrefab);
             particle.transform.localPosition = particlePositions[i];
             particles[i] = particle;
         }
@@ -42,19 +46,27 @@ public class Simulation : MonoBehaviour
 
     void Update()
     {
-        float maxDt = maxTimeStepFPS > 0 ?  1f / maxTimeStepFPS : float.MaxValue;
-        float dt = Mathf.Min(Time.deltaTime, maxDt) / iterationsPerFrame;
-        for (int i = 0; i < iterationsPerFrame; i++) {
-            IterateSimulation(dt);
+        if (!paused)
+        {
+            float maxDt = maxTimeStepFPS > 0 ? 1f / maxTimeStepFPS : float.MaxValue;
+            float dt = Mathf.Min(Time.deltaTime, maxDt) / iterationsPerFrame;
+            for (int i = 0; i < iterationsPerFrame; i++)
+            {
+                IterateSimulation(dt);
+            }
         }
+        if (pauseNextFrame) paused = true;
 
-        for (int i = 0; i < particles.Length; i++) {
+        for (int i = 0; i < particles.Length; i++)
+        {
             particles[i].transform.localPosition = particlePositions[i];
         }
     }
 
-    void IterateSimulation(float dt) {
-        for (int i = 0; i < particlePositions.Length; i++) {
+    void IterateSimulation(float dt)
+    {
+        for (int i = 0; i < particlePositions.Length; i++)
+        {
             ref Vector3 pos = ref particlePositions[i];
             ref Vector3 vel = ref particleVelocities[i];
 
@@ -65,31 +77,27 @@ public class Simulation : MonoBehaviour
         }
     }
 
-    void HandleBoundaryCollision(ref Vector3 pos, ref Vector3 vel) {
-        if (pos.x < -size.x / 2) {
-            pos.x = -size.x / 2;
+    void HandleBoundaryCollision(ref Vector3 pos, ref Vector3 vel)
+    {
+        pos = transform.InverseTransformPoint(pos);
+        vel = transform.InverseTransformDirection(vel);
+        if (Math.Abs(pos.x) > 0.5f)
+        {
+            pos.x = 0.5f * Math.Sign(pos.x);
             vel.x = 0;
         }
-        if (pos.x > size.x / 2) {
-            pos.x = size.x / 2;
-            vel.x = 0;
-        }
-        if (pos.y < -size.y / 2) {
-            pos.y = -size.y / 2;
+        if (Math.Abs(pos.y) > 0.5f)
+        {
+            pos.y = 0.5f * Math.Sign(pos.y);
             vel.y = 0;
         }
-        if (pos.y > size.y / 2) {
-            pos.y = size.y / 2;
-            vel.y = 0;
-        }
-        if (pos.z < -size.z / 2) {
-            pos.z = -size.z / 2;
+        if (Math.Abs(pos.z) > 0.5f)
+        {
+            pos.z = 0.5f * Math.Sign(pos.z);
             vel.z = 0;
         }
-        if (pos.z > size.z / 2) {
-            pos.z = size.z / 2;
-            vel.z = 0;
-        }
+        pos = transform.TransformPoint(pos);
+        vel = transform.TransformDirection(vel);
     }
 
     void OnDrawGizmos()
@@ -98,7 +106,7 @@ public class Simulation : MonoBehaviour
         var m = Gizmos.matrix;
         Gizmos.matrix = transform.localToWorldMatrix;
         Gizmos.color = new Color(0, 1, 0, 0.5f);
-        Gizmos.DrawWireCube(Vector3.zero, size);
+        Gizmos.DrawWireCube(Vector3.zero, Vector3.one);
         Gizmos.matrix = m;
     }
 }

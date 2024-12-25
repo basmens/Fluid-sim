@@ -4,8 +4,6 @@ public class SimpleSpawner : Spawner
 {
     [Header("Spawner")]
     public int particlesPerAxis;
-    public Vector3 center;
-    public Vector3 size;
 
     public override SpawnData Spawn()
     {
@@ -16,16 +14,13 @@ public class SimpleSpawner : Spawner
         int i = 0;
         for (int x = 0; x < particlesPerAxis; x++)
         {
-            float tx = (float)x / (particlesPerAxis - 1);
-            float px = (tx - 0.5f) * size.x + center.x;
+            float px = (float)x / (particlesPerAxis - 1) - 0.5f;
             for (int y = 0; y < particlesPerAxis; y++)
             {
-                float ty = (float)y / (particlesPerAxis - 1);
-                float py = (ty - 0.5f) * size.y + center.y;
+                float py = (float)y / (particlesPerAxis - 1) - 0.5f;
                 for (int z = 0; z < particlesPerAxis; z++)
                 {
-                    float tz = (float)z / (particlesPerAxis - 1);
-                    float pz = (tz - 0.5f) * size.z + center.z;
+                    float pz = (float)z / (particlesPerAxis - 1) - 0.5f;
                     particlePositions[i] = new Vector3(px, py, pz);
                     particleVelocities[i] = Vector3.zero;
                     i++;
@@ -33,6 +28,7 @@ public class SimpleSpawner : Spawner
             }
         }
 
+        transform.TransformPoints(particlePositions);
         return new SpawnData {
             position = particlePositions,
             velocity = particleVelocities
@@ -45,7 +41,7 @@ public class SimpleSpawner : Spawner
         var m = Gizmos.matrix;
         Gizmos.matrix = transform.localToWorldMatrix;
         Gizmos.color = new Color(1, 0, 0.5f, 0.5f);
-        Gizmos.DrawWireCube(center, size);
+        Gizmos.DrawWireCube(Vector3.zero, Vector3.one);
         Gizmos.matrix = m;
     }
 }
