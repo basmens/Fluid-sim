@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Simulation2D
 {
@@ -7,7 +8,7 @@ namespace Simulation2D
     {
         [Header("Init")]
         public Spawner spawner;
-        public GameObject particlePrefab;
+        public SimulationRenderer simRenderer;
 
         [Header("Time step")]
         public float maxTimeStepFPS = 60;
@@ -18,11 +19,8 @@ namespace Simulation2D
         [Header("Simulation")]
         public Vector2 gravity = new(0, -9.81f);
 
-        int numParticles;
-        Vector2[] particlePositions;
-        Vector2[] particleVelocities;
-        GameObject[] particles;
-        Vector2 Size => transform.localScale;
+        public int NumParticles => Particles.Length;
+        public Particle[] Particles { get; private set; }
 
         void Start()
         {
@@ -32,18 +30,8 @@ namespace Simulation2D
         void Initialize()
         {
             Spawner.SpawnData spawnData = spawner.Spawn();
-            particlePositions = spawnData.position;
-            particleVelocities = spawnData.velocity;
-            numParticles = particlePositions.Length;
-
-            particles = new GameObject[numParticles];
-
-            for (int i = 0; i < numParticles; i++)
-            {
-                GameObject particle = Instantiate(particlePrefab);
-                particle.transform.localPosition = particlePositions[i];
-                particles[i] = particle;
-            }
+            Particles = spawnData.particles;
+            simRenderer.Init(this);
         }
 
         void Update()
@@ -58,19 +46,15 @@ namespace Simulation2D
                 }
             }
             if (pauseNextFrame) paused = true;
-
-            for (int i = 0; i < particles.Length; i++)
-            {
-                particles[i].transform.localPosition = particlePositions[i];
-            }
         }
 
         void IterateSimulation(float dt)
         {
-            for (int i = 0; i < particlePositions.Length; i++)
+            for (int i = 0; i < NumParticles; i++)
             {
-                ref Vector2 pos = ref particlePositions[i];
-                ref Vector2 vel = ref particleVelocities[i];
+                ref Particle p = ref Particles[i];
+                ref Vector2 pos = ref p.position;
+                ref Vector2 vel = ref p.velocity;
 
                 vel += gravity * dt;
                 pos += vel * dt;
@@ -105,6 +89,20 @@ namespace Simulation2D
             Gizmos.color = new Color(0, 1, 0, 0.5f);
             Gizmos.DrawWireCube(Vector2.zero, Vector2.one);
             Gizmos.matrix = m;
+        }
+    }
+
+    public struct Particle
+    {
+        public Vector2 position;
+        public Vector2 velocity;
+        public float mass;
+
+        public Particle(Vector2 position, Vector2 velocity, float mass)
+        {
+            this.position = position;
+            this.velocity = velocity;
+            this.mass = mass;
         }
     }
 }

@@ -7,12 +7,12 @@ namespace Simulation2D
     {
         [Header("Spawner")]
         public int particlesPerAxis;
+        public float mass = 1f;
 
         public override SpawnData Spawn()
         {
             int numParticles = particlesPerAxis * particlesPerAxis;
-            Vector2[] particlePositions = new Vector2[numParticles];
-            Vector2[] particleVelocities = new Vector2[numParticles];
+            Particle[] particles = new Particle[numParticles];
 
             int i = 0;
             for (int x = 0; x < particlesPerAxis; x++)
@@ -22,16 +22,14 @@ namespace Simulation2D
                 {
                     float py = (float)y / (particlesPerAxis - 1) - 0.5f;
                     Vector3 pos3d = transform.TransformPoint(px, py, 0);
-                    particlePositions[i] = new(pos3d.x, pos3d.y);
-                    particleVelocities[i] = Vector2.zero;
+                    particles[i] = new(new(pos3d.x, pos3d.y), Vector2.zero, mass);
                     i++;
                 }
             }
 
             return new SpawnData
             {
-                position = particlePositions,
-                velocity = particleVelocities
+                particles = particles
             };
         }
 

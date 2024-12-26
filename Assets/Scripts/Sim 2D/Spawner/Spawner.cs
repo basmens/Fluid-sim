@@ -8,8 +8,7 @@ namespace Simulation2D
 
         public struct SpawnData
         {
-            public Vector2[] position;
-            public Vector2[] velocity;
+            public Particle[] particles;
         }
     }
 }
