@@ -19,7 +19,7 @@ namespace Simulation2D
 
         [Header("Particle")]
         public float particleRadius = 5f;
-        public float smoothWidth = 0.5f;
+        public float smoothWidth = Mathf.Sqrt(2);
         public Color particleColor = Color.blue;
 
         Simulation simulation;
@@ -97,15 +97,15 @@ namespace Simulation2D
                 for (int y = minY; y <= maxY; y++)
                 {
                     float dist = (new Vector2(x, y) - screenSpacePos).magnitude;
-                    if (dist <= particleRadius - smoothWidth)
+                    if (dist <= particleRadius)
                     {
                         texture.SetPixel(x, y, particleColor);
                         continue;
                     }
 
-                    if (dist > particleRadius) continue;
+                    if (dist > particleRadius + smoothWidth) continue;
 
-                    float t = (dist - particleRadius + smoothWidth) / smoothWidth;
+                    float t = (dist - particleRadius) / smoothWidth;
                     Color color = ColorSmoothStep(particleColor, texture.GetPixel(x, y), t);
                     texture.SetPixel(x, y, color);
                 }

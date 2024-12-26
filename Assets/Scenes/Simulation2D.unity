@@ -181,7 +181,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 1
+  orthographic size: 0.55
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -459,7 +459,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: afc5bdcc36fffcf41aacd6189f88c5b9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particlesPerAxis: 10
+  particlesPerAxis: 100
   mass: 1
 --- !u!4 &1508534493
 Transform:
@@ -543,7 +543,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rawImageComponent: {fileID: 781029506}
   worldCamera: {fileID: 468872544}
-  particleRadius: 5
+  backgroundColor: {r: 0, g: 0, b: 0, a: 1}
+  borderColor: {r: 1, g: 1, b: 1, a: 1}
+  particleRadius: 2
+  smoothWidth: 1.414214
   particleColor: {r: 0, g: 0, b: 1, a: 1}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
