@@ -5,9 +5,10 @@ using UnityEngine.UI;
 
 namespace Simulation2D
 {
-    public class RawImageRenderer : SimulationRenderer
+    public class RawImageRenderer : MonoBehaviour
     {
         [Header("Rendering")]
+        public Simulation simulation;
         public RawImage rawImageComponent;
         public Camera worldCamera;
 
@@ -22,15 +23,12 @@ namespace Simulation2D
         public float smoothWidth = Mathf.Sqrt(2);
         public Color particleColor = Color.blue;
 
-        Simulation simulation;
         Texture2D texture;
         readonly int width = Screen.width;
         readonly int height = Screen.height;
 
-        public override void Init(Simulation simulation)
+        void Start()
         {
-            this.simulation = simulation;
-
             texture = new Texture2D(width, height);
             rawImageComponent.texture = texture;
         }
@@ -87,10 +85,10 @@ namespace Simulation2D
         void RenderParticle(Particle p)
         {
             Vector2 screenSpacePos = MapWorldToScreenSpace(p.position);
-            int minX = Math.Max((int)Math.Floor(-particleRadius + screenSpacePos.x), 0);
-            int maxX = Math.Min((int)Math.Ceiling(particleRadius + screenSpacePos.x), width - 1);
-            int minY = Math.Max((int)Math.Floor(-particleRadius + screenSpacePos.y), 0);
-            int maxY = Math.Min((int)Math.Ceiling(particleRadius + screenSpacePos.y), height - 1);
+            int minX = Math.Max((int)Math.Floor(-particleRadius - smoothWidth + screenSpacePos.x), 0);
+            int maxX = Math.Min((int)Math.Ceiling(particleRadius + smoothWidth + screenSpacePos.x), width - 1);
+            int minY = Math.Max((int)Math.Floor(-particleRadius - smoothWidth + screenSpacePos.y), 0);
+            int maxY = Math.Min((int)Math.Ceiling(particleRadius + smoothWidth + screenSpacePos.y), height - 1);
 
             for (int x = minX; x <= maxX; x++)
             {

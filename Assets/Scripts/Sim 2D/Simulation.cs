@@ -8,7 +8,6 @@ namespace Simulation2D
     {
         [Header("Init")]
         public Spawner spawner;
-        public SimulationRenderer simRenderer;
 
         [Header("Time step")]
         public float maxTimeStepFPS = 60;
@@ -31,7 +30,6 @@ namespace Simulation2D
         {
             Spawner.SpawnData spawnData = spawner.Spawn();
             Particles = spawnData.particles;
-            simRenderer.Init(this);
         }
 
         void Update()

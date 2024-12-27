@@ -459,7 +459,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: afc5bdcc36fffcf41aacd6189f88c5b9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particlesPerAxis: 100
+  particlesPerAxis: 40
   mass: 1
 --- !u!4 &1508534493
 Transform:
@@ -507,7 +507,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spawner: {fileID: 1508534492}
-  simRenderer: {fileID: 2045742821}
   maxTimeStepFPS: 60
   iterationsPerFrame: 3
   paused: 1
@@ -541,11 +540,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8721226d36f3a84ba8ba6eaa33b0876, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  simulation: {fileID: 2045742819}
   rawImageComponent: {fileID: 781029506}
   worldCamera: {fileID: 468872544}
   backgroundColor: {r: 0, g: 0, b: 0, a: 1}
   borderColor: {r: 1, g: 1, b: 1, a: 1}
-  particleRadius: 2
+  particleRadius: 1
   smoothWidth: 1.414214
   particleColor: {r: 0, g: 0, b: 1, a: 1}
 --- !u!1660057539 &9223372036854775807
