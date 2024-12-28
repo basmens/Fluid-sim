@@ -181,7 +181,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 0.55
+  orthographic size: 55
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -461,7 +461,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   drawGizmos: 1
-  particlesPerAxis: 30
+  particlesPerAxis: 10
   mass: 1
 --- !u!4 &1508534493
 Transform:
@@ -523,7 +523,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   drawGizmos: 0
-  numParticles: 250
+  numParticles: 50
   mass: 1
 --- !u!1 &1857850643
 GameObject:
@@ -634,6 +634,7 @@ MonoBehaviour:
   paused: 1
   pauseNextFrame: 0
   gravity: {x: 0, y: -9.81}
+  smoothingRadius: 20
 --- !u!4 &2045742820
 Transform:
   m_ObjectHideFlags: 0
@@ -644,7 +645,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 100, y: 100, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1508534493}
@@ -667,7 +668,7 @@ MonoBehaviour:
   rawImageComponent: {fileID: 1857850645}
   worldCamera: {fileID: 468872544}
   backgroundColor: {r: 0, g: 0, b: 0, a: 1}
-  debugView: 1
+  debugView: 3
 --- !u!114 &2045742823
 MonoBehaviour:
   m_ObjectHideFlags: 0

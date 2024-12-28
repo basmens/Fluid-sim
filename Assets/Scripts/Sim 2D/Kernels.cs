@@ -5,11 +5,13 @@ namespace Simulation2D
     public class Kernels
     {
 
-        public static double SquareKernel(float x, float h)
+        public static float SquareKernel(float x, float h)
         {
-            float y = Mathf.Pow((h - x), 2);
-            
-            return Mathf.Max(y, 0);
+            if (x > h) return 0;
+            float value = h - x;
+            value *= value;
+            float volume = Mathf.PI / 6 * h * h * h * h;
+            return value / volume;
         }
     }
 }

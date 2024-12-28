@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,9 +18,12 @@ namespace Simulation2D
 
         [Header("Simulation")]
         public Vector2 gravity = new(0, -9.81f);
+        public float smoothingRadius = 0.02f;
 
         public int NumParticles => Particles.Length;
         public Particle[] Particles { get; private set; }
+
+        public float[] Densities { get; private set; }
 
         void Start()
         {
@@ -30,11 +34,16 @@ namespace Simulation2D
         {
             Spawner.SpawnData spawnData = spawner.Spawn();
             Particles = spawnData.particles;
+            Densities = new float[NumParticles];
         }
 
         void Update()
         {
-            if (!paused)
+            if (paused)
+            {
+                IterateSimulation(0);
+            }
+            else
             {
                 float maxDt = maxTimeStepFPS > 0 ? 1f / maxTimeStepFPS : float.MaxValue;
                 float dt = Mathf.Min(Time.deltaTime, maxDt) / iterationsPerFrame;
@@ -48,6 +57,10 @@ namespace Simulation2D
 
         void IterateSimulation(float dt)
         {
+            Parallel.For(0, NumParticles, i => {
+                Densities[i] = CalculateDensity(ref Particles[i].position);
+            });
+
             for (int i = 0; i < NumParticles; i++)
             {
                 ref Particle p = ref Particles[i];
@@ -77,6 +90,16 @@ namespace Simulation2D
             }
             pos = transform.TransformPoint(pos);
             vel = transform.TransformDirection(vel);
+        }
+
+        public float CalculateDensity(ref Vector2 pos) {
+            float density = 0;
+            foreach (Particle p in Particles) {
+                float distance = (p.position - pos).magnitude;
+                float weight = Kernels.SquareKernel(distance, smoothingRadius);
+                density += weight * p.mass;
+            }
+            return density;
         }
 
         void OnDrawGizmos()

@@ -19,12 +19,32 @@ namespace Simulation2D
         protected readonly int width = Screen.width;
         protected readonly int height = Screen.height;
 
+        Matrix4x4 worldToScreenMatrix;
+        Matrix4x4 screenToWorldMatrix;
+
         void Start()
         {
             texture = new Texture2D(width, height);
             rawImageComponent.texture = texture;
         }
-        
+
+        void Update()
+        {
+            float cameraH = worldCamera.orthographicSize;
+            float cameraW = cameraH * worldCamera.aspect;
+
+            float halfW = (width - 1) / 2f;
+            float halfH = (height - 1) / 2f;
+
+            worldToScreenMatrix = Matrix4x4.Translate(new(halfW, halfH))
+                * Matrix4x4.Scale(new(halfW / cameraW, halfH / cameraH))
+                * worldCamera.transform.worldToLocalMatrix;
+
+            screenToWorldMatrix = worldCamera.transform.localToWorldMatrix
+                * Matrix4x4.Scale(new(cameraW / halfW, cameraH / halfH))
+                * Matrix4x4.Translate(new(-halfW, -halfH));
+        }
+
 
         protected void SetBackgroundColor(Color color)
         {
@@ -90,24 +110,12 @@ namespace Simulation2D
 
         protected Vector2 MapWorldToScreenSpace(Vector2 worldPos)
         {
-            Vector2 cameraPos = worldCamera.transform.InverseTransformPoint(worldPos);
-            float cameraSize = worldCamera.orthographicSize;
-            float aspectRatio = worldCamera.aspect;
-            return new(
-                (cameraPos.x / cameraSize / aspectRatio + 1) / 2 * (width - 1),
-                (cameraPos.y / cameraSize + 1) / 2 * (height - 1)
-            );
+            return worldToScreenMatrix.MultiplyPoint(worldPos);
         }
 
         protected Vector2 MapScreenToWorldSpace(Vector2 screenPos)
         {
-            float cameraSize = worldCamera.orthographicSize;
-            float aspectRatio = worldCamera.aspect;
-            Vector2 cameraPos = new(
-                (screenPos.x / (width - 1) * 2 - 1) * cameraSize * aspectRatio,
-                (screenPos.y / (height - 1) * 2 - 1) * cameraSize
-            );
-            return worldCamera.transform.InverseTransformPoint(cameraPos);
+            return screenToWorldMatrix.MultiplyPoint(screenPos);
         }
     }
 }
