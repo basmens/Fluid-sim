@@ -15,49 +15,18 @@ namespace Simulation2D
         [Header("Background")]
         public Color backgroundColor = Color.black;
 
-        [Header("Border")]
-        public Color borderColor = Color.white;
-
-        [Header("Particle")]
-        public float particleRadius = 5f;
-        public float smoothWidth = Mathf.Sqrt(2);
-        public Color particleColor = Color.blue;
-
-        Texture2D texture;
-        readonly int width = Screen.width;
-        readonly int height = Screen.height;
+        protected Texture2D texture;
+        protected readonly int width = Screen.width;
+        protected readonly int height = Screen.height;
 
         void Start()
         {
             texture = new Texture2D(width, height);
             rawImageComponent.texture = texture;
         }
+        
 
-        void LateUpdate()
-        {
-            RenderParticles();
-        }
-
-        void RenderParticles()
-        {
-            // Clear texture
-            SetBackgroundColor(backgroundColor);
-
-            // Draw simulation bounds
-            Vector2 leftTop = MapWorldToScreenSpace(simulation.transform.TransformPoint(new(-0.5f, 0.5f)));
-            Vector2 rightTop = MapWorldToScreenSpace(simulation.transform.TransformPoint(new(0.5f, 0.5f)));
-            Vector2 rightBottom = MapWorldToScreenSpace(simulation.transform.TransformPoint(new(0.5f, -0.5f)));
-            Vector2 leftBottom = MapWorldToScreenSpace(simulation.transform.TransformPoint(new(-0.5f, -0.5f)));
-            DrawPath(borderColor, leftTop, rightTop, rightBottom, leftBottom);
-
-            // Render particles
-            foreach (Particle p in simulation.Particles)
-                RenderParticle(p);
-
-            texture.Apply();
-        }
-
-        void SetBackgroundColor(Color color)
+        protected void SetBackgroundColor(Color color)
         {
             Color[] background = new Color[width * height];
             for (int i = 0; i < background.Length; i++)
@@ -65,7 +34,7 @@ namespace Simulation2D
             texture.SetPixels(background);
         }
 
-        void DrawPath(Color color, params Vector2[] points)
+        protected void DrawPath(Color color, params Vector2[] points)
         {
             Vector2 prevPoint = points.Last();
             foreach (Vector2 point in points)
@@ -82,35 +51,34 @@ namespace Simulation2D
             }
         }
 
-        void RenderParticle(Particle p)
+        protected void DrawCircle(Vector2 center, float radius, float smoothWidth, Color color)
         {
-            Vector2 screenSpacePos = MapWorldToScreenSpace(p.position);
-            int minX = Math.Max((int)Math.Floor(-particleRadius - smoothWidth + screenSpacePos.x), 0);
-            int maxX = Math.Min((int)Math.Ceiling(particleRadius + smoothWidth + screenSpacePos.x), width - 1);
-            int minY = Math.Max((int)Math.Floor(-particleRadius - smoothWidth + screenSpacePos.y), 0);
-            int maxY = Math.Min((int)Math.Ceiling(particleRadius + smoothWidth + screenSpacePos.y), height - 1);
+            int minX = Math.Max((int)Math.Floor(center.x - radius - smoothWidth), 0);
+            int maxX = Math.Min((int)Math.Ceiling(center.x + radius + smoothWidth), width - 1);
+            int minY = Math.Max((int)Math.Floor(center.y - radius - smoothWidth), 0);
+            int maxY = Math.Min((int)Math.Ceiling(center.y + radius + smoothWidth), height - 1);
 
             for (int x = minX; x <= maxX; x++)
             {
                 for (int y = minY; y <= maxY; y++)
                 {
-                    float dist = (new Vector2(x, y) - screenSpacePos).magnitude;
-                    if (dist <= particleRadius)
+                    float dist = (new Vector2(x, y) - center).magnitude;
+                    if (dist <= radius)
                     {
-                        texture.SetPixel(x, y, particleColor);
+                        texture.SetPixel(x, y, color);
                         continue;
                     }
 
-                    if (dist > particleRadius + smoothWidth) continue;
+                    if (dist > radius + smoothWidth) continue;
 
-                    float t = (dist - particleRadius) / smoothWidth;
-                    Color color = ColorSmoothStep(particleColor, texture.GetPixel(x, y), t);
-                    texture.SetPixel(x, y, color);
+                    float t = (dist - radius) / smoothWidth;
+                    Color fadedColor = ColorSmoothStep(color, texture.GetPixel(x, y), t);
+                    texture.SetPixel(x, y, fadedColor);
                 }
             }
         }
 
-        Color ColorSmoothStep(Color from, Color to, float t)
+        protected Color ColorSmoothStep(Color from, Color to, float t)
         {
             return new Color(
                 Mathf.SmoothStep(from.r, to.r, t),
@@ -120,15 +88,26 @@ namespace Simulation2D
             );
         }
 
-        Vector2 MapWorldToScreenSpace(Vector2 worldPos)
+        protected Vector2 MapWorldToScreenSpace(Vector2 worldPos)
         {
-            worldPos = worldCamera.transform.InverseTransformPoint(worldPos);
+            Vector2 cameraPos = worldCamera.transform.InverseTransformPoint(worldPos);
             float cameraSize = worldCamera.orthographicSize;
             float aspectRatio = worldCamera.aspect;
-            return new Vector2(
-                (worldPos.x / cameraSize / aspectRatio + 1) / 2 * (width - 1),
-                (worldPos.y / cameraSize + 1) / 2 * (height - 1)
+            return new(
+                (cameraPos.x / cameraSize / aspectRatio + 1) / 2 * (width - 1),
+                (cameraPos.y / cameraSize + 1) / 2 * (height - 1)
             );
+        }
+
+        protected Vector2 MapScreenToWorldSpace(Vector2 screenPos)
+        {
+            float cameraSize = worldCamera.orthographicSize;
+            float aspectRatio = worldCamera.aspect;
+            Vector2 cameraPos = new(
+                (screenPos.x / (width - 1) * 2 - 1) * cameraSize * aspectRatio,
+                (screenPos.y / (height - 1) * 2 - 1) * cameraSize
+            );
+            return worldCamera.transform.InverseTransformPoint(cameraPos);
         }
     }
 }

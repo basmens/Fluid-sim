@@ -3,31 +3,25 @@ using UnityEngine;
 
 namespace Simulation2D
 {
-    public class SimpleSpawner : Spawner
+    public class RandomSpawner : Spawner
     {
         [Header("Editor")]
         public bool drawGizmos = true;
 
         [Header("Spawner")]
-        public int particlesPerAxis;
+        public int numParticles;
         public float mass = 1f;
 
         public override SpawnData Spawn()
         {
-            int numParticles = particlesPerAxis * particlesPerAxis;
             Particle[] particles = new Particle[numParticles];
 
-            int i = 0;
-            for (int x = 0; x < particlesPerAxis; x++)
+            for (int i = 0; i < numParticles; i++)
             {
-                float px = (float)x / (particlesPerAxis - 1) - 0.5f;
-                for (int y = 0; y < particlesPerAxis; y++)
-                {
-                    float py = (float)y / (particlesPerAxis - 1) - 0.5f;
-                    Vector3 pos3d = transform.TransformPoint(px, py, 0);
-                    particles[i] = new(new(pos3d.x, pos3d.y), Vector2.zero, mass);
-                    i++;
-                }
+                float x = Random.Range(-0.5f, 0.5f);
+                float y = Random.Range(-0.5f, 0.5f);
+                Vector2 pos = transform.TransformPoint(new(x, y));
+                particles[i] = new Particle(pos, Vector2.zero, mass);
             }
 
             return new SpawnData
