@@ -1,9 +1,5 @@
-using System;
-using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.UI;
 
 namespace Simulation2D
 {
@@ -45,12 +41,11 @@ namespace Simulation2D
                     float total = 0;
                     for (int i = 0; i < simulation.NumParticles; i++)
                     {
-                        ref Particle p = ref simulation.Particles[i];
-                        float distance = (p.position - pos).magnitude;
+                        float distance = (simulation.Positions[i] - pos).magnitude;
                         float weight = Kernels.SquareKernel(distance, simulation.smoothingRadius);
-                        float property = CalcPropertyAt(p.position);
+                        float property = CalcPropertyAt(simulation.Positions[i]);
                         float density = simulation.Densities[i];
-                        total += weight * property * p.mass / density;
+                        total += weight * property * simulation.Masses[i] / density;
                     }
 
                     pixels[x + width * y] = new(total, total, total);

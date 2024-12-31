@@ -1,7 +1,4 @@
-using System;
-using System.Linq;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Simulation2D
 {
@@ -28,15 +25,15 @@ namespace Simulation2D
             DrawPath(borderColor, leftTop, rightTop, rightBottom, leftBottom);
 
             // Render particles
-            foreach (Particle p in simulation.Particles)
-                RenderParticle(p);
+            foreach (Vector2 pos in simulation.Positions)
+                RenderParticle(pos);
 
             texture.Apply();
         }
 
-        void RenderParticle(Particle p)
+        void RenderParticle(Vector2 pos)
         {
-            Vector2 screenSpacePos = MapWorldToScreenSpace(p.position);
+            Vector2 screenSpacePos = MapWorldToScreenSpace(pos);
             DrawCircle(screenSpacePos, particleRadius, smoothWidth, particleColor);
         }
     }

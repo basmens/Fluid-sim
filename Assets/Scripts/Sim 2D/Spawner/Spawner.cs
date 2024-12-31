@@ -8,7 +8,15 @@ namespace Simulation2D
 
         public struct SpawnData
         {
-            public Particle[] particles;
+            public Vector2[] positions;
+            public Vector2[] velocities;
+            public float[] masses;
+
+            public SpawnData(Vector2[] positions, Vector2[] velocities, float[] masses) {
+                this.positions = positions;
+                this.velocities = velocities;
+                this.masses = masses;
+            }
         }
     }
 }

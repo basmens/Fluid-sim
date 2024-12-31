@@ -58,6 +58,11 @@
     },
     "dotnet.defaultSolution": "Fluid sim.sln",
     "cSpell.words": [
-        "Mathf"
+        "ENDHLSL",
+        "frag",
+        "fwidth",
+        "HLSLPROGRAM",
+        "Mathf",
+        "smoothstep"
     ]
 }

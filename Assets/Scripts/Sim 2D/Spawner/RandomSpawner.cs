@@ -14,20 +14,20 @@ namespace Simulation2D
 
         public override SpawnData Spawn()
         {
-            Particle[] particles = new Particle[numParticles];
+            Vector2[] positions = new Vector2[numParticles];
+            Vector2[] velocities = new Vector2[numParticles];
+            float[] masses = new float[numParticles];
 
             for (int i = 0; i < numParticles; i++)
             {
                 float x = Random.Range(-0.5f, 0.5f);
                 float y = Random.Range(-0.5f, 0.5f);
-                Vector2 pos = transform.TransformPoint(new(x, y));
-                particles[i] = new Particle(pos, Vector2.zero, mass);
+                positions[i] = transform.TransformPoint(new(x, y));
+                velocities[i] = Vector2.zero;
+                masses[i] = mass;
             }
 
-            return new SpawnData
-            {
-                particles = particles
-            };
+            return new(positions, velocities, masses);
         }
 
         void OnDrawGizmos()

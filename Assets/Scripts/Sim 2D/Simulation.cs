@@ -20,8 +20,10 @@ namespace Simulation2D
         public Vector2 gravity = new(0, -9.81f);
         public float smoothingRadius = 0.02f;
 
-        public int NumParticles => Particles.Length;
-        public Particle[] Particles { get; private set; }
+        public int NumParticles => Positions.Length;
+        public Vector2[] Positions { get; private set; }
+        public Vector2[] Velocities { get; private set; }
+        public float[] Masses { get; private set; }
 
         public float[] Densities { get; private set; }
 
@@ -33,7 +35,10 @@ namespace Simulation2D
         void Initialize()
         {
             Spawner.SpawnData spawnData = spawner.Spawn();
-            Particles = spawnData.particles;
+            Positions = spawnData.positions;
+            Velocities = spawnData.velocities;
+            Masses = spawnData.masses;
+
             Densities = new float[NumParticles];
         }
 
@@ -58,14 +63,13 @@ namespace Simulation2D
         void IterateSimulation(float dt)
         {
             Parallel.For(0, NumParticles, i => {
-                Densities[i] = CalculateDensity(ref Particles[i].position);
+                Densities[i] = CalculateDensity(ref Positions[i]);
             });
 
             for (int i = 0; i < NumParticles; i++)
             {
-                ref Particle p = ref Particles[i];
-                ref Vector2 pos = ref p.position;
-                ref Vector2 vel = ref p.velocity;
+                ref Vector2 pos = ref Positions[i];
+                ref Vector2 vel = ref Velocities[i];
 
                 vel += gravity * dt;
                 pos += vel * dt;
@@ -94,10 +98,10 @@ namespace Simulation2D
 
         public float CalculateDensity(ref Vector2 pos) {
             float density = 0;
-            foreach (Particle p in Particles) {
-                float distance = (p.position - pos).magnitude;
+            for (int i = 0; i < NumParticles; i++) {
+                float distance = (Positions[i] - pos).magnitude;
                 float weight = Kernels.SquareKernel(distance, smoothingRadius);
-                density += weight * p.mass;
+                density += weight * Masses[i];
             }
             return density;
         }
@@ -110,20 +114,6 @@ namespace Simulation2D
             Gizmos.color = new Color(0, 1, 0, 0.5f);
             Gizmos.DrawWireCube(Vector2.zero, Vector2.one);
             Gizmos.matrix = m;
-        }
-    }
-
-    public struct Particle
-    {
-        public Vector2 position;
-        public Vector2 velocity;
-        public float mass;
-
-        public Particle(Vector2 position, Vector2 velocity, float mass)
-        {
-            this.position = position;
-            this.velocity = velocity;
-            this.mass = mass;
         }
     }
 }
