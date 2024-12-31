@@ -461,7 +461,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   drawGizmos: 1
-  particlesPerAxis: 2
+  particlesPerAxis: 100
   mass: 1
 --- !u!4 &1508534493
 Transform:
@@ -670,7 +670,7 @@ MonoBehaviour:
   backgroundColor: {r: 0, g: 0, b: 0, a: 1}
   particleColorSource: 0
   scale: 2
-  edgeSoftness: 0.25
+  edgeSoftness: 0.4
   staticParticleColor: {r: 0, g: 0, b: 1, a: 1}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

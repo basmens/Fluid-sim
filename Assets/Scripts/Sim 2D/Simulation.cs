@@ -62,9 +62,9 @@ namespace Simulation2D
 
         void IterateSimulation(float dt)
         {
-            Parallel.For(0, NumParticles, i => {
-                Densities[i] = CalculateDensity(ref Positions[i]);
-            });
+            // Parallel.For(0, NumParticles, i => {
+            //     Densities[i] = CalculateDensity(ref Positions[i]);
+            // });
 
             for (int i = 0; i < NumParticles; i++)
             {

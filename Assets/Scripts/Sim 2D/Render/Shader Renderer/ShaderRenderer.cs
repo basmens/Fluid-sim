@@ -7,8 +7,6 @@ namespace Simulation2D
         [Header("Rendering")]
         public Simulation simulation;
         public Camera worldCamera;
-
-        [Header("Shader")]
         public Shader shader;
         public Mesh mesh;
 
@@ -18,7 +16,7 @@ namespace Simulation2D
         [Header("Particle")]
         public ParticleColorSource particleColorSource = ParticleColorSource.Static;
         public float scale = 1;
-        [Range(0, 0.5f)] public float edgeSoftness = 0.05f;
+        [Range(0, 1f)] public float edgeSoftness = 0.5f;
         public Color staticParticleColor = Color.blue;
 
         bool needsUpdate = true;
@@ -39,6 +37,8 @@ namespace Simulation2D
 
             positionsBuffer.SetData(simulation.Positions);
             material.SetBuffer("_ParticlePositions", positionsBuffer);
+        
+            // material.SetMatrix("_BillboardMatrix", Matrix4x4.Rotate(worldCamera.transform.rotation).inverse);
 
             RenderParams param = new(material) { camera = worldCamera };
             Graphics.RenderMeshPrimitives(param, mesh, 0, simulation.NumParticles);
