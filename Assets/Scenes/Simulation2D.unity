@@ -671,7 +671,39 @@ MonoBehaviour:
   particleColorSource: 0
   scale: 2
   edgeSoftness: 0.4
+  coloringTextureResolution: 100
   staticParticleColor: {r: 0, g: 0, b: 1, a: 1}
+  velocityColorGradient:
+    serializedVersion: 2
+    key0: {r: 0, g: 0.23198462, b: 1, a: 1}
+    key1: {r: 0, g: 0.82807636, b: 1, a: 1}
+    key2: {r: 1, g: 0.9152552, b: 0, a: 0}
+    key3: {r: 1, g: 0, b: 0.02143383, a: 0}
+    key4: {r: 1, g: 1, b: 1, a: 0}
+    key5: {r: 0, g: 0, b: 0, a: 0}
+    key6: {r: 0, g: 0, b: 0, a: 0}
+    key7: {r: 0, g: 0, b: 0, a: 0}
+    ctime0: 0
+    ctime1: 10871
+    ctime2: 42791
+    ctime3: 51580
+    ctime4: 65535
+    ctime5: 0
+    ctime6: 0
+    ctime7: 0
+    atime0: 0
+    atime1: 65535
+    atime2: 0
+    atime3: 0
+    atime4: 0
+    atime5: 0
+    atime6: 0
+    atime7: 0
+    m_Mode: 0
+    m_ColorSpace: -1
+    m_NumColorKeys: 5
+    m_NumAlphaKeys: 2
+  maxVelocity: 1000
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

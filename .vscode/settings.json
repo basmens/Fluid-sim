@@ -58,6 +58,7 @@
     },
     "dotnet.defaultSolution": "Fluid sim.sln",
     "cSpell.words": [
+        "Coloring",
         "ENDHLSL",
         "frag",
         "fwidth",
