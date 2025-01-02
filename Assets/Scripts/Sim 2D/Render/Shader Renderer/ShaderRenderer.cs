@@ -67,8 +67,8 @@ namespace Simulation2D
 
             if (positionsBuffer != null) return;
             int stride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2));
-            positionsBuffer = new(simulation.NumParticles, stride);
-            velocitiesBuffer = new(simulation.NumParticles, stride);
+            positionsBuffer = new(simulation.NumParticles, 8);
+            velocitiesBuffer = new(simulation.NumParticles, 8);
         }
 
         void DiscernColoringProperty()
