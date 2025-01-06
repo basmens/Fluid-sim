@@ -5,7 +5,8 @@ Shader "Instanced/ParticleShader" {
     SubShader {
 		Tags { "RenderType"="Transparent" "Queue"="Transparent" }
 		Blend SrcAlpha OneMinusSrcAlpha
-        ZWrite Off
+        ZWrite On
+        ZTest LEqual
         
         Pass {
             Name "ParticleShader"

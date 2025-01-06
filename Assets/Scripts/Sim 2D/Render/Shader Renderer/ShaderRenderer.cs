@@ -14,6 +14,9 @@ namespace Simulation2D
         [Header("Background")]
         public Color backgroundColor = Color.black;
 
+        [Header("Border")]
+        public Color borderColor = Color.white;
+
         [Header("Particle")]
         public ParticleColorSource particleColorSource = ParticleColorSource.Static;
         public float scale = 1;
@@ -26,6 +29,7 @@ namespace Simulation2D
         bool needsUpdate = true;
         Material material;
         Texture2D coloringTexture;
+        RenderParams renderParams;
         ComputeBuffer positionsBuffer;
         ComputeBuffer velocitiesBuffer;
 
@@ -45,21 +49,25 @@ namespace Simulation2D
 
             UpdateSettings();
 
+            // Update buffers
             positionsBuffer.SetData(simulation.Positions);
             velocitiesBuffer.SetData(simulation.Velocities);
             material.SetBuffer("_Positions", positionsBuffer);
             material.SetBuffer("_Velocities", velocitiesBuffer);
 
+            // Render particles
             // material.SetMatrix("_BillboardMatrix", Matrix4x4.Rotate(worldCamera.transform.rotation).inverse);
-
-            RenderParams param = new(material) { camera = worldCamera };
-            Graphics.RenderMeshPrimitives(param, mesh, 0, simulation.NumParticles);
+            Graphics.RenderMeshPrimitives(renderParams, mesh, 0, simulation.NumParticles);
         }
 
         void UpdateSettings()
         {
             if (!needsUpdate) return;
             needsUpdate = false;
+
+            worldCamera.backgroundColor = backgroundColor;
+            worldCamera.clearFlags = CameraClearFlags.SolidColor;
+            renderParams = new(material) { camera = worldCamera };
 
             material.SetFloat("_Scale", scale);
             material.SetFloat("_EdgeSoftness", edgeSoftness);
