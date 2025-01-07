@@ -1,7 +1,6 @@
-using System;
 using System.Threading.Tasks;
+using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Simulation2D
 {
@@ -18,7 +17,10 @@ namespace Simulation2D
 
         [Header("Simulation")]
         public Vector2 gravity = new(0, -9.81f);
+        [Range(0, 1)] public float collisionDampening = 0.95f;
         public float smoothingRadius = 0.02f;
+        public float pressureConstant;
+        public float targetDensity;
 
         public int NumParticles => Positions.Length;
         public Vector2[] Positions { get; private set; }
@@ -44,37 +46,35 @@ namespace Simulation2D
 
         void Update()
         {
-            if (paused)
+            if (paused || smoothingRadius < 0.01) return;
+
+            float maxDt = maxTimeStepFPS > 0 ? 1f / maxTimeStepFPS : float.MaxValue;
+            float dt = Mathf.Min(Time.deltaTime, maxDt) / iterationsPerFrame;
+            for (int i = 0; i < iterationsPerFrame; i++)
             {
-                IterateSimulation(0);
-            }
-            else
-            {
-                float maxDt = maxTimeStepFPS > 0 ? 1f / maxTimeStepFPS : float.MaxValue;
-                float dt = Mathf.Min(Time.deltaTime, maxDt) / iterationsPerFrame;
-                for (int i = 0; i < iterationsPerFrame; i++)
-                {
-                    IterateSimulation(dt);
-                }
+                IterateSimulation(dt);
             }
             if (pauseNextFrame) paused = true;
         }
 
-        void IterateSimulation(float dt)
+        public void IterateSimulation(float dt)
         {
-            // Parallel.For(0, NumParticles, i => {
-            //     Densities[i] = CalculateDensity(ref Positions[i]);
-            // });
+            Parallel.For(0, NumParticles, i =>
+            {
+                Densities[i] = CalculateDensity(ref Positions[i]);
+            });
+
+            Parallel.For(0, NumParticles, i =>
+            {
+                ref Vector2 vel = ref Velocities[i];
+                vel += gravity * dt;
+                vel += CalculatePressureGradient(i) / Densities[i] * dt;
+            });
 
             for (int i = 0; i < NumParticles; i++)
             {
-                ref Vector2 pos = ref Positions[i];
-                ref Vector2 vel = ref Velocities[i];
-
-                vel += gravity * dt;
-                pos += vel * dt;
-
-                HandleBoundaryCollision(ref pos, ref vel);
+                Positions[i] += Velocities[i] * dt;
+                HandleBoundaryCollision(ref Positions[i], ref Velocities[i]);
             }
         }
 
@@ -82,28 +82,54 @@ namespace Simulation2D
         {
             pos = transform.InverseTransformPoint(pos);
             vel = transform.InverseTransformDirection(vel);
-            if (Math.Abs(pos.x) > 0.5f)
+            if (Mathf.Abs(pos.x) > 0.5f)
             {
-                pos.x = 0.5f * Math.Sign(pos.x);
-                vel.x = 0;
+                pos.x = 0.5f * Mathf.Sign(pos.x);
+                vel.x *= -collisionDampening;
             }
-            if (Math.Abs(pos.y) > 0.5f)
+            if (Mathf.Abs(pos.y) > 0.5f)
             {
-                pos.y = 0.5f * Math.Sign(pos.y);
-                vel.y = 0;
+                pos.y = 0.5f * Mathf.Sign(pos.y);
+                vel.y *= -collisionDampening;
             }
             pos = transform.TransformPoint(pos);
             vel = transform.TransformDirection(vel);
         }
 
-        public float CalculateDensity(ref Vector2 pos) {
+        public float DensityToPressure(float density)
+        {
+            return pressureConstant * (density - targetDensity);
+        }
+
+        public float CalculateDensity(ref Vector2 pos)
+        {
             float density = 0;
-            for (int i = 0; i < NumParticles; i++) {
+            for (int i = 0; i < NumParticles; i++)
+            {
                 float distance = (Positions[i] - pos).magnitude;
                 float weight = Kernels.SquareKernel(distance, smoothingRadius);
                 density += weight * Masses[i];
             }
             return density;
+        }
+
+        public Vector2  CalculatePressureGradient(int i)
+        {
+            Vector2 gradient = Vector2.zero;
+            float pressureI = DensityToPressure(Densities[i]);
+            for (int j = 0; j < NumParticles; j++)
+            {
+                if (i == j) continue;
+
+                Vector2 dir = Positions[j] - Positions[i];
+                float distance = dir.magnitude;
+                dir = (distance == 0) ? new(Mathf.Cos(i + j), Mathf.Sin(i + j)) : dir / distance;
+
+                float pressure = (pressureI + DensityToPressure(Densities[j])) / 2;
+                float weight = Kernels.SquareKernelSlope(distance, smoothingRadius);
+                gradient += weight * pressure * dir * Masses[j] / Densities[j];
+            }
+            return gradient;
         }
 
         void OnDrawGizmos()

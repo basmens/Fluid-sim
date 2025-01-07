@@ -7,6 +7,9 @@ namespace Simulation2D
     {
         [Header("Debug")]
         public DebugView debugView;
+        public float densityMultiplier = 0.01f;
+        public bool drawPressureGradients;
+        public float pressureGradientScale = 100;
 
         void LateUpdate()
         {
@@ -20,6 +23,7 @@ namespace Simulation2D
                     break;
                 case DebugView.Density:
                     DrawDensities();
+                    if (drawPressureGradients) DrawPressureGradients();
                     break;
                 default:
                     SetBackgroundColor(backgroundColor);
@@ -74,17 +78,26 @@ namespace Simulation2D
 
         void DrawDensities()
         {
+            simulation.IterateSimulation(0);
             Color[] pixels = new Color[width * height];
             Parallel.For(0, width, x =>
             {
                 for (int y = 0; y < height; y++)
                 {
                     Vector2 pos = MapScreenToWorldSpace(new(x, y));
-                    float density = simulation.CalculateDensity(ref pos);
+                    float density = simulation.CalculateDensity(ref pos) * densityMultiplier;
                     pixels[x + width * y] = new(density, density, density);
                 }
             });
             texture.SetPixels(pixels);
+        }
+
+        void DrawPressureGradients() {
+            for (int i = 0; i < simulation.NumParticles; i++) {
+                Vector2 screenPos = MapWorldToScreenSpace(simulation.Positions[i]);
+                Vector2 gradient = simulation.CalculatePressureGradient(i) * pressureGradientScale;
+                DrawPath(Color.red, screenPos, screenPos + gradient);
+            }
         }
     }
 
