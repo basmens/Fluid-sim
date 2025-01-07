@@ -25,6 +25,9 @@ namespace Simulation2D
                     DrawDensities();
                     if (drawPressureGradients) DrawPressureGradients();
                     break;
+                case DebugView.SpatialGrid:
+                    DrawSpatialGrid();
+                    break;
                 default:
                     SetBackgroundColor(backgroundColor);
                     break;
@@ -92,11 +95,42 @@ namespace Simulation2D
             texture.SetPixels(pixels);
         }
 
-        void DrawPressureGradients() {
-            for (int i = 0; i < simulation.NumParticles; i++) {
+        void DrawPressureGradients()
+        {
+            for (int i = 0; i < simulation.NumParticles; i++)
+            {
                 Vector2 screenPos = MapWorldToScreenSpace(simulation.Positions[i]);
                 Vector2 gradient = simulation.CalculatePressureForce(i) * pressureGradientScale;
                 DrawPath(Color.red, screenPos, screenPos + gradient);
+            }
+        }
+
+        void DrawSpatialGrid()
+        {
+            simulation.IterateSimulation(0);
+
+            Vector2 mouseWorld = MapScreenToWorldSpace(Input.mousePosition);
+            int wrappedHashAtMouse = SpatialGridHelper.CalcWrappedHash(mouseWorld, simulation.smoothingRadius, simulation.NumParticles);
+
+            Color[] pixels = new Color[width * height];
+            Parallel.For(0, width, x =>
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    Vector2 pixelWorld = MapScreenToWorldSpace(new(x, y));
+                    int wrappedHash = SpatialGridHelper.CalcWrappedHash(pixelWorld, simulation.smoothingRadius, simulation.NumParticles);
+
+                    pixels[x + width * y] = wrappedHash == wrappedHashAtMouse ? new(0, 1, 0, backgroundColor.a) : backgroundColor;
+                }
+            });
+            texture.SetPixels(pixels);
+
+            for (int i = simulation.SpatialLookup[wrappedHashAtMouse];
+                i < simulation.NumParticles && simulation.SpatialHashes[i].x == wrappedHashAtMouse; i++)
+            {
+                Vector2 pos = simulation.Positions[simulation.SpatialHashes[i].y];
+                Vector2 screenPos = MapWorldToScreenSpace(pos);
+                DrawCircle(screenPos, 5, 1, new(1, 0, 0, backgroundColor.a));
             }
         }
     }
@@ -106,6 +140,7 @@ namespace Simulation2D
         None,
         InterpolateProperty,
         PropertyToInterpolate,
-        Density
+        Density,
+        SpatialGrid
     }
 }

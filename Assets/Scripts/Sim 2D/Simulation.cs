@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
 using Unity.Mathematics;
+using Unity.Profiling;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 namespace Simulation2D
 {
@@ -29,6 +31,8 @@ namespace Simulation2D
         public float[] Masses { get; private set; }
 
         public float[] Densities { get; private set; }
+        public Vector2Int[] SpatialHashes { get; private set; }
+        public int[] SpatialLookup { get; private set; }
 
         void Start()
         {
@@ -43,6 +47,8 @@ namespace Simulation2D
             Masses = spawnData.masses;
 
             Densities = new float[NumParticles];
+            SpatialHashes = new Vector2Int[NumParticles];
+            SpatialLookup = new int[NumParticles];
         }
 
         void Update()
@@ -58,13 +64,45 @@ namespace Simulation2D
             if (pauseNextFrame) paused = true;
         }
 
+        private static readonly ProfilerMarker iterateSimulationProfilerMarker = new("IterateSimulation");
         public void IterateSimulation(float dt)
         {
+            iterateSimulationProfilerMarker.Begin();
+
+            // Generate spatial grid
+            Profiler.BeginSample("Generate spatial hashes");
+            Parallel.For(0, NumParticles, i =>
+            {
+                Vector2Int cellIndex = SpatialGridHelper.PositionToCellIndex(Positions[i], smoothingRadius);
+                int hash = SpatialGridHelper.HashCellIndex(cellIndex);
+                SpatialHashes[i].x = SpatialGridHelper.WrapCellHash(hash, NumParticles);
+                SpatialHashes[i].y = i;
+            });
+            Profiler.EndSample();
+
+            Profiler.BeginSample("Sort spatial hashes");
+            System.Array.Sort(SpatialHashes, (a, b) => a.x - b.x);
+            Profiler.EndSample();
+
+            Profiler.BeginSample("Generate spatial lookup");
+            Parallel.For(0, NumParticles, i =>
+            {
+                if (i == 0 || SpatialHashes[i].x != SpatialHashes[i - 1].x)
+                {
+                    SpatialLookup[SpatialHashes[i].x] = i;
+                }
+            });
+            Profiler.EndSample();
+
+            // Step simulation
+            Profiler.BeginSample("Calculate densities");
             Parallel.For(0, NumParticles, i =>
             {
                 Densities[i] = CalculateDensity(ref Positions[i]);
             });
+            Profiler.EndSample();
 
+            Profiler.BeginSample("Calculate and apply forces");
             Parallel.For(0, NumParticles, i =>
             {
                 Vector2 force = CalculatePressureForce(i);
@@ -74,12 +112,17 @@ namespace Simulation2D
                 force += gravity;
                 Velocities[i] += force * dt;
             });
+            Profiler.EndSample();
 
+            Profiler.BeginSample("Handle boundary collisions");
             for (int i = 0; i < NumParticles; i++)
             {
                 Positions[i] += Velocities[i] * dt;
                 HandleBoundaryCollision(ref Positions[i], ref Velocities[i]);
             }
+            Profiler.EndSample();
+
+            iterateSimulationProfilerMarker.End();
         }
 
         void HandleBoundaryCollision(ref Vector2 pos, ref Vector2 vel)
@@ -108,45 +151,62 @@ namespace Simulation2D
         public float CalculateDensity(ref Vector2 pos)
         {
             float density = 0;
-            for (int i = 0; i < NumParticles; i++)
+            foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
             {
-                float distance = (Positions[i] - pos).magnitude;
-                float weight = Kernels.DensityKernel(distance, smoothingRadius);
-                density += weight * Masses[i];
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(pos, neighbour, smoothingRadius, NumParticles);
+                for (int i = SpatialLookup[wrappedHash]; i < NumParticles && SpatialHashes[i].x == wrappedHash; i++)
+                {
+                    int p = SpatialHashes[i].y;
+                    float distance = (Positions[p] - pos).magnitude;
+                    float weight = Kernels.DensityKernel(distance, smoothingRadius);
+                    density += weight * Masses[p];
+                }
             }
             return density;
         }
 
-        public Vector2  CalculatePressureForce(int i)
+        public Vector2 CalculatePressureForce(int i)
         {
             Vector2 force = Vector2.zero;
             float pressureI = DensityToPressure(Densities[i]);
-            for (int j = 0; j < NumParticles; j++)
+
+            foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
             {
-                if (i == j) continue;
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, NumParticles);
+                for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
+                {
+                    int p = SpatialHashes[j].y;
+                    if (i == p) continue;
 
-                Vector2 dir = Positions[j] - Positions[i];
-                float distance = dir.magnitude;
-                dir = (distance == 0) ? new(Mathf.Cos(i + j), Mathf.Sin(i + j)) : dir / distance;
+                    Vector2 dir = Positions[p] - Positions[i];
+                    float distance = dir.magnitude;
+                    dir = (distance == 0) ? new(Mathf.Cos(i + j + p), Mathf.Sin(i + j + p)) : dir / distance;
 
-                float pressure = (pressureI + DensityToPressure(Densities[j])) / 2;
-                float weight = Kernels.DensityKernelSlope(distance, smoothingRadius);
-                force += weight * pressure * dir * Masses[j] / Densities[j];
+                    float pressure = (pressureI + DensityToPressure(Densities[p])) / 2;
+                    float weight = Kernels.DensityKernelSlope(distance, smoothingRadius);
+                    force += weight * pressure * dir * Masses[p] / Densities[p];
+                }
             }
             return force;
         }
-        
-        public Vector2  CalculateViscosityForce(int i)
+
+        public Vector2 CalculateViscosityForce(int i)
         {
             Vector2 force = Vector2.zero;
-            for (int j = 0; j < NumParticles; j++)
-            {
-                if (i == j) continue;
 
-                float distance = (Positions[j] - Positions[i]).magnitude;
-                Vector2 diffVel = Velocities[j] - Velocities[i];
-                float weight = Kernels.ViscosityKernel(distance, smoothingRadius);
-                force += weight * diffVel * Masses[j] / Densities[j];
+            foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
+            {
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, NumParticles);
+                for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
+                {
+                    int p = SpatialHashes[j].y;
+                    if (i == p) continue;
+
+                    float distance = (Positions[p] - Positions[i]).magnitude;
+                    Vector2 diffVel = Velocities[p] - Velocities[i];
+                    float weight = Kernels.ViscosityKernel(distance, smoothingRadius);
+                    force += weight * diffVel * Masses[p] / Densities[p];
+                }
             }
             return force * viscosity;
         }
