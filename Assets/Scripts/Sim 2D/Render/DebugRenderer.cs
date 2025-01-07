@@ -46,7 +46,7 @@ namespace Simulation2D
                     for (int i = 0; i < simulation.NumParticles; i++)
                     {
                         float distance = (simulation.Positions[i] - pos).magnitude;
-                        float weight = Kernels.SquareKernel(distance, simulation.smoothingRadius);
+                        float weight = Kernels.DensityKernel(distance, simulation.smoothingRadius);
                         float property = CalcPropertyAt(simulation.Positions[i]);
                         float density = simulation.Densities[i];
                         total += weight * property * simulation.Masses[i] / density;
@@ -95,7 +95,7 @@ namespace Simulation2D
         void DrawPressureGradients() {
             for (int i = 0; i < simulation.NumParticles; i++) {
                 Vector2 screenPos = MapWorldToScreenSpace(simulation.Positions[i]);
-                Vector2 gradient = simulation.CalculatePressureGradient(i) * pressureGradientScale;
+                Vector2 gradient = simulation.CalculatePressureForce(i) * pressureGradientScale;
                 DrawPath(Color.red, screenPos, screenPos + gradient);
             }
         }

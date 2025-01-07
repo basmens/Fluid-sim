@@ -21,6 +21,7 @@ namespace Simulation2D
         public float smoothingRadius = 0.02f;
         public float pressureConstant;
         public float targetDensity;
+        public float viscosity;
 
         public int NumParticles => Positions.Length;
         public Vector2[] Positions { get; private set; }
@@ -66,9 +67,12 @@ namespace Simulation2D
 
             Parallel.For(0, NumParticles, i =>
             {
-                ref Vector2 vel = ref Velocities[i];
-                vel += gravity * dt;
-                vel += CalculatePressureGradient(i) / Densities[i] * dt;
+                Vector2 force = CalculatePressureForce(i);
+                force += CalculateViscosityForce(i);
+                force /= Densities[i];
+
+                force += gravity;
+                Velocities[i] += force * dt;
             });
 
             for (int i = 0; i < NumParticles; i++)
@@ -107,15 +111,15 @@ namespace Simulation2D
             for (int i = 0; i < NumParticles; i++)
             {
                 float distance = (Positions[i] - pos).magnitude;
-                float weight = Kernels.SquareKernel(distance, smoothingRadius);
+                float weight = Kernels.DensityKernel(distance, smoothingRadius);
                 density += weight * Masses[i];
             }
             return density;
         }
 
-        public Vector2  CalculatePressureGradient(int i)
+        public Vector2  CalculatePressureForce(int i)
         {
-            Vector2 gradient = Vector2.zero;
+            Vector2 force = Vector2.zero;
             float pressureI = DensityToPressure(Densities[i]);
             for (int j = 0; j < NumParticles; j++)
             {
@@ -126,10 +130,25 @@ namespace Simulation2D
                 dir = (distance == 0) ? new(Mathf.Cos(i + j), Mathf.Sin(i + j)) : dir / distance;
 
                 float pressure = (pressureI + DensityToPressure(Densities[j])) / 2;
-                float weight = Kernels.SquareKernelSlope(distance, smoothingRadius);
-                gradient += weight * pressure * dir * Masses[j] / Densities[j];
+                float weight = Kernels.DensityKernelSlope(distance, smoothingRadius);
+                force += weight * pressure * dir * Masses[j] / Densities[j];
             }
-            return gradient;
+            return force;
+        }
+        
+        public Vector2  CalculateViscosityForce(int i)
+        {
+            Vector2 force = Vector2.zero;
+            for (int j = 0; j < NumParticles; j++)
+            {
+                if (i == j) continue;
+
+                float distance = (Positions[j] - Positions[i]).magnitude;
+                Vector2 diffVel = Velocities[j] - Velocities[i];
+                float weight = Kernels.ViscosityKernel(distance, smoothingRadius);
+                force += weight * diffVel * Masses[j] / Densities[j];
+            }
+            return force * viscosity;
         }
 
         void OnDrawGizmos()
