@@ -460,7 +460,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   drawGizmos: 1
-  particlesPerAxis: 10
+  particlesPerAxis: 30
   mass: 1
 --- !u!4 &1508534493
 Transform:
@@ -564,8 +564,11 @@ MonoBehaviour:
   collisionDampening: 0.95
   smoothingRadius: 0.9
   pressureConstant: 500
-  targetDensity: 7
-  viscosity: 0.5
+  targetDensity: 5
+  viscosity: 0.3
+  sortingPositionsTemp: []
+  sortingVelocitiesTemp: []
+  sortingMassesTemp: []
 --- !u!4 &2045742820
 Transform:
   m_ObjectHideFlags: 0

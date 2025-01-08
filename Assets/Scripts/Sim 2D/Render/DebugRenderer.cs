@@ -128,7 +128,7 @@ namespace Simulation2D
             for (int i = simulation.SpatialLookup[wrappedHashAtMouse];
                 i < simulation.NumParticles && simulation.SpatialHashes[i].x == wrappedHashAtMouse; i++)
             {
-                Vector2 pos = simulation.Positions[simulation.SpatialHashes[i].y];
+                Vector2 pos = simulation.Positions[i];
                 Vector2 screenPos = MapWorldToScreenSpace(pos);
                 DrawCircle(screenPos, 5, 1, new(1, 0, 0, backgroundColor.a));
             }

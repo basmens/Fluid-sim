@@ -34,6 +34,10 @@ namespace Simulation2D
         public Vector2Int[] SpatialHashes { get; private set; }
         public int[] SpatialLookup { get; private set; }
 
+        public Vector2[] sortingPositionsTemp;
+        public Vector2[] sortingVelocitiesTemp;
+        public float[] sortingMassesTemp;
+
         void Start()
         {
             Initialize();
@@ -49,6 +53,10 @@ namespace Simulation2D
             Densities = new float[NumParticles];
             SpatialHashes = new Vector2Int[NumParticles];
             SpatialLookup = new int[NumParticles];
+
+            sortingPositionsTemp = new Vector2[NumParticles];
+            sortingVelocitiesTemp = new Vector2[NumParticles];
+            sortingMassesTemp = new float[NumParticles];
         }
 
         void Update()
@@ -93,6 +101,17 @@ namespace Simulation2D
                 }
             });
             Profiler.EndSample();
+
+            // Sort the positions, velocities and masses arrays according to 
+            // the spatial hash array in order to improve memory locality
+            Parallel.For(0, NumParticles, i => {
+                sortingPositionsTemp[i] = Positions[SpatialHashes[i].y];
+                sortingVelocitiesTemp[i] = Velocities[SpatialHashes[i].y];
+                sortingMassesTemp[i] = Masses[SpatialHashes[i].y];
+            });
+            (Positions, sortingPositionsTemp) = (sortingPositionsTemp, Positions);
+            (Velocities, sortingVelocitiesTemp) = (sortingVelocitiesTemp, Velocities);
+            (Masses, sortingMassesTemp) = (sortingMassesTemp, Masses);
 
             // Step simulation
             Profiler.BeginSample("Calculate densities");
@@ -156,10 +175,9 @@ namespace Simulation2D
                 int wrappedHash = SpatialGridHelper.CalcWrappedHash(pos, neighbour, smoothingRadius, NumParticles);
                 for (int i = SpatialLookup[wrappedHash]; i < NumParticles && SpatialHashes[i].x == wrappedHash; i++)
                 {
-                    int p = SpatialHashes[i].y;
-                    float distance = (Positions[p] - pos).magnitude;
+                    float distance = (Positions[i] - pos).magnitude;
                     float weight = Kernels.DensityKernel(distance, smoothingRadius);
-                    density += weight * Masses[p];
+                    density += weight * Masses[i];
                 }
             }
             return density;
@@ -175,16 +193,15 @@ namespace Simulation2D
                 int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, NumParticles);
                 for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
                 {
-                    int p = SpatialHashes[j].y;
-                    if (i == p) continue;
+                    if (i == j) continue;
 
-                    Vector2 dir = Positions[p] - Positions[i];
+                    Vector2 dir = Positions[j] - Positions[i];
                     float distance = dir.magnitude;
-                    dir = (distance == 0) ? new(Mathf.Cos(i + j + p), Mathf.Sin(i + j + p)) : dir / distance;
+                    dir = (distance == 0) ? new(Mathf.Cos(i + j), Mathf.Sin(i + j)) : dir / distance;
 
-                    float pressure = (pressureI + DensityToPressure(Densities[p])) / 2;
+                    float pressure = (pressureI + DensityToPressure(Densities[j])) / 2;
                     float weight = Kernels.DensityKernelSlope(distance, smoothingRadius);
-                    force += weight * pressure * dir * Masses[p] / Densities[p];
+                    force += weight * pressure * dir * Masses[j] / Densities[j];
                 }
             }
             return force;
@@ -199,13 +216,12 @@ namespace Simulation2D
                 int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, NumParticles);
                 for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
                 {
-                    int p = SpatialHashes[j].y;
-                    if (i == p) continue;
+                    if (i == j) continue;
 
-                    float distance = (Positions[p] - Positions[i]).magnitude;
-                    Vector2 diffVel = Velocities[p] - Velocities[i];
+                    float distance = (Positions[j] - Positions[i]).magnitude;
+                    Vector2 diffVel = Velocities[j] - Velocities[i];
                     float weight = Kernels.ViscosityKernel(distance, smoothingRadius);
-                    force += weight * diffVel * Masses[p] / Densities[p];
+                    force += weight * diffVel * Masses[j] / Densities[j];
                 }
             }
             return force * viscosity;

@@ -24,7 +24,7 @@ namespace Simulation2D
         }
 
         public static int HashCellIndex(Vector2Int cellIndex) {
-            return cellIndex.x * 467 + cellIndex.y * 7919;
+            return cellIndex.x * 15823 + cellIndex.y * 9737333;
         }
 
         public static int WrapCellHash(int hash, int numParticles) {
