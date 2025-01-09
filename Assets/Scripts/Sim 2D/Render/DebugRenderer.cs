@@ -110,7 +110,7 @@ namespace Simulation2D
             simulation.IterateSimulation(0);
 
             Vector2 mouseWorld = MapScreenToWorldSpace(Input.mousePosition);
-            int wrappedHashAtMouse = SpatialGridHelper.CalcWrappedHash(mouseWorld, simulation.smoothingRadius, simulation.NumParticles);
+            int wrappedHashAtMouse = SpatialGridHelper.CalcWrappedHash(mouseWorld, simulation.smoothingRadius, simulation.spatialLookupSize);
 
             Color[] pixels = new Color[width * height];
             Parallel.For(0, width, x =>
@@ -118,7 +118,7 @@ namespace Simulation2D
                 for (int y = 0; y < height; y++)
                 {
                     Vector2 pixelWorld = MapScreenToWorldSpace(new(x, y));
-                    int wrappedHash = SpatialGridHelper.CalcWrappedHash(pixelWorld, simulation.smoothingRadius, simulation.NumParticles);
+                    int wrappedHash = SpatialGridHelper.CalcWrappedHash(pixelWorld, simulation.smoothingRadius, simulation.spatialLookupSize);
 
                     pixels[x + width * y] = wrappedHash == wrappedHashAtMouse ? new(0, 1, 0, backgroundColor.a) : backgroundColor;
                 }

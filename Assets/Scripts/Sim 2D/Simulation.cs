@@ -14,6 +14,7 @@ namespace Simulation2D
         [Header("Time step")]
         public float maxTimeStepFPS = 60;
         public float iterationsPerFrame = 3;
+        [Range(0.01f, 10f)] public float timeMultiplier = 1;
         public bool paused = false;
         public bool pauseNextFrame = false;
 
@@ -25,11 +26,15 @@ namespace Simulation2D
         public float targetDensity;
         public float viscosity;
 
+        [Header("Optimization")]
+        public int spatialLookupSize = 1000;
+
         public int NumParticles => Positions.Length;
         public Vector2[] Positions { get; private set; }
         public Vector2[] Velocities { get; private set; }
         public float[] Masses { get; private set; }
 
+        public Vector2[] PosDependentAccelerations { get; private set; }
         public float[] Densities { get; private set; }
         public Vector2Int[] SpatialHashes { get; private set; }
         public int[] SpatialLookup { get; private set; }
@@ -37,6 +42,9 @@ namespace Simulation2D
         public Vector2[] sortingPositionsTemp;
         public Vector2[] sortingVelocitiesTemp;
         public float[] sortingMassesTemp;
+        public Vector2[] sortingPosDependentAccelerationsTemp;
+
+        bool needsUpdate;
 
         void Start()
         {
@@ -50,17 +58,30 @@ namespace Simulation2D
             Velocities = spawnData.velocities;
             Masses = spawnData.masses;
 
+            PosDependentAccelerations = new Vector2[NumParticles];
             Densities = new float[NumParticles];
             SpatialHashes = new Vector2Int[NumParticles];
-            SpatialLookup = new int[NumParticles];
 
             sortingPositionsTemp = new Vector2[NumParticles];
             sortingVelocitiesTemp = new Vector2[NumParticles];
             sortingMassesTemp = new float[NumParticles];
+            sortingPosDependentAccelerationsTemp = new Vector2[NumParticles];
+
+            UpdateSettings();
+            CalculateDensities();
+        }
+
+        void UpdateSettings()
+        {
+            needsUpdate = false;
+
+            SpatialLookup = new int[spatialLookupSize];
+            DoSpatialHashing();
         }
 
         void Update()
         {
+            if (needsUpdate) UpdateSettings();
             if (paused || smoothingRadius < 0.01) return;
 
             float maxDt = maxTimeStepFPS > 0 ? 1f / maxTimeStepFPS : float.MaxValue;
@@ -76,14 +97,81 @@ namespace Simulation2D
         public void IterateSimulation(float dt)
         {
             iterateSimulationProfilerMarker.Begin();
+            // Step simulation using leapfrog integration
+            // https://en.wikipedia.org/wiki/Leapfrog_integration
+            UpdateVelocities(dt);
+            UpdatePositions(dt);
 
+            DoSpatialHashing();
+
+            CalculateDensities();
+            CalculateAccelerations();
+
+            UpdateVelocities(dt);
+
+            iterateSimulationProfilerMarker.End();
+        }
+
+        void CalculateAccelerations()
+        {
+            Profiler.BeginSample("Calculate position dependent accelerations");
+            Parallel.For(0, NumParticles, i =>
+            {
+                ref Vector2 a = ref PosDependentAccelerations[i];
+                a = CalculatePressureForce(i);
+                a /= Densities[i];
+                a += gravity;
+            });
+            Profiler.EndSample();
+        }
+
+        void UpdateVelocities(float dt)
+        {
+            Profiler.BeginSample("Update velocities");
+            Parallel.For(0, NumParticles, i =>
+            {
+                Vector2 velDependentAccelerations = CalculateViscosityForce(i);
+                velDependentAccelerations /= Densities[i];
+                Velocities[i] += (PosDependentAccelerations[i] + velDependentAccelerations) * dt / 2;
+            });
+            Profiler.EndSample();
+        }
+
+        void UpdatePositions(float dt)
+        {
+            Profiler.BeginSample("Update positions");
+
+            // Pre compute world to and from local space matrices
+            Matrix4x4 worldToLocal = transform.worldToLocalMatrix;
+            Matrix4x4 LocalToWorld = transform.localToWorldMatrix;
+
+            Parallel.For(0, NumParticles, i =>
+            {
+                ref Vector2 p = ref Positions[i];
+                ref Vector2 v = ref Velocities[i];
+                p += v * dt;
+                HandleBoundaryCollision(ref p, ref v, ref worldToLocal, ref LocalToWorld);
+            });
+            Profiler.EndSample();
+        }
+
+        void CalculateDensities()
+        {
+            Profiler.BeginSample("Calculate densities");
+            Parallel.For(0, NumParticles, i =>
+            {
+                Densities[i] = CalculateDensity(ref Positions[i]);
+            });
+            Profiler.EndSample();
+        }
+
+        void DoSpatialHashing()
+        {
             // Generate spatial grid
             Profiler.BeginSample("Generate spatial hashes");
             Parallel.For(0, NumParticles, i =>
             {
-                Vector2Int cellIndex = SpatialGridHelper.PositionToCellIndex(Positions[i], smoothingRadius);
-                int hash = SpatialGridHelper.HashCellIndex(cellIndex);
-                SpatialHashes[i].x = SpatialGridHelper.WrapCellHash(hash, NumParticles);
+                SpatialHashes[i].x = SpatialGridHelper.CalcWrappedHash(Positions[i], smoothingRadius, spatialLookupSize);
                 SpatialHashes[i].y = i;
             });
             Profiler.EndSample();
@@ -104,50 +192,25 @@ namespace Simulation2D
 
             // Sort the positions, velocities and masses arrays according to 
             // the spatial hash array in order to improve memory locality
-            Parallel.For(0, NumParticles, i => {
+            Profiler.BeginSample("Sort positions, velocities and masses");
+            Parallel.For(0, NumParticles, i =>
+            {
                 sortingPositionsTemp[i] = Positions[SpatialHashes[i].y];
                 sortingVelocitiesTemp[i] = Velocities[SpatialHashes[i].y];
                 sortingMassesTemp[i] = Masses[SpatialHashes[i].y];
+                sortingPosDependentAccelerationsTemp[i] = PosDependentAccelerations[SpatialHashes[i].y];
             });
             (Positions, sortingPositionsTemp) = (sortingPositionsTemp, Positions);
             (Velocities, sortingVelocitiesTemp) = (sortingVelocitiesTemp, Velocities);
             (Masses, sortingMassesTemp) = (sortingMassesTemp, Masses);
-
-            // Step simulation
-            Profiler.BeginSample("Calculate densities");
-            Parallel.For(0, NumParticles, i =>
-            {
-                Densities[i] = CalculateDensity(ref Positions[i]);
-            });
+            (PosDependentAccelerations, sortingPosDependentAccelerationsTemp) = (sortingPosDependentAccelerationsTemp, PosDependentAccelerations);
             Profiler.EndSample();
-
-            Profiler.BeginSample("Calculate and apply forces");
-            Parallel.For(0, NumParticles, i =>
-            {
-                Vector2 force = CalculatePressureForce(i);
-                force += CalculateViscosityForce(i);
-                force /= Densities[i];
-
-                force += gravity;
-                Velocities[i] += force * dt;
-            });
-            Profiler.EndSample();
-
-            Profiler.BeginSample("Handle boundary collisions");
-            for (int i = 0; i < NumParticles; i++)
-            {
-                Positions[i] += Velocities[i] * dt;
-                HandleBoundaryCollision(ref Positions[i], ref Velocities[i]);
-            }
-            Profiler.EndSample();
-
-            iterateSimulationProfilerMarker.End();
         }
 
-        void HandleBoundaryCollision(ref Vector2 pos, ref Vector2 vel)
+        void HandleBoundaryCollision(ref Vector2 pos, ref Vector2 vel, ref Matrix4x4 worldToLocal, ref Matrix4x4 LocalToWorld)
         {
-            pos = transform.InverseTransformPoint(pos);
-            vel = transform.InverseTransformDirection(vel);
+            pos = worldToLocal.MultiplyPoint3x4(pos);
+            vel = worldToLocal.MultiplyVector(vel);
             if (Mathf.Abs(pos.x) > 0.5f)
             {
                 pos.x = 0.5f * Mathf.Sign(pos.x);
@@ -158,8 +221,8 @@ namespace Simulation2D
                 pos.y = 0.5f * Mathf.Sign(pos.y);
                 vel.y *= -collisionDampening;
             }
-            pos = transform.TransformPoint(pos);
-            vel = transform.TransformDirection(vel);
+            pos = LocalToWorld.MultiplyPoint3x4(pos);
+            vel = LocalToWorld.MultiplyVector(vel);
         }
 
         public float DensityToPressure(float density)
@@ -172,7 +235,7 @@ namespace Simulation2D
             float density = 0;
             foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
             {
-                int wrappedHash = SpatialGridHelper.CalcWrappedHash(pos, neighbour, smoothingRadius, NumParticles);
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(pos, neighbour, smoothingRadius, spatialLookupSize);
                 for (int i = SpatialLookup[wrappedHash]; i < NumParticles && SpatialHashes[i].x == wrappedHash; i++)
                 {
                     float distance = (Positions[i] - pos).magnitude;
@@ -190,7 +253,7 @@ namespace Simulation2D
 
             foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
             {
-                int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, NumParticles);
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, spatialLookupSize);
                 for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
                 {
                     if (i == j) continue;
@@ -213,7 +276,7 @@ namespace Simulation2D
 
             foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
             {
-                int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, NumParticles);
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, spatialLookupSize);
                 for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
                 {
                     if (i == j) continue;
@@ -225,6 +288,10 @@ namespace Simulation2D
                 }
             }
             return force * viscosity;
+        }
+
+        void OnValidate() {
+            needsUpdate = true;
         }
 
         void OnDrawGizmos()

@@ -558,6 +558,7 @@ MonoBehaviour:
   spawner: {fileID: 1508534492}
   maxTimeStepFPS: 60
   iterationsPerFrame: 3
+  timeMultiplier: 1
   paused: 1
   pauseNextFrame: 0
   gravity: {x: 0, y: -50}
@@ -566,9 +567,11 @@ MonoBehaviour:
   pressureConstant: 500
   targetDensity: 5
   viscosity: 0.3
+  spatialLookupSize: 1000
   sortingPositionsTemp: []
   sortingVelocitiesTemp: []
   sortingMassesTemp: []
+  sortingPosDependentAccelerationsTemp: []
 --- !u!4 &2045742820
 Transform:
   m_ObjectHideFlags: 0
