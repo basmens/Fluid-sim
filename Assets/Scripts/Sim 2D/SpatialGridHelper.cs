@@ -27,8 +27,8 @@ namespace Simulation2D
             return cellIndex.x * 15823 + cellIndex.y * 9737333;
         }
 
-        public static int WrapCellHash(int hash, int spatialLookupSize) {
-            return (hash % spatialLookupSize + spatialLookupSize) % spatialLookupSize;
+        public static int WrapCellHash(int hash, int spatialLookupSizeLog2) {
+            return hash & ((1 << spatialLookupSizeLog2) - 1);
         }
         
         public static int CalcWrappedHash(Vector2 pos, float cellSize, int spatialLookupSize) {

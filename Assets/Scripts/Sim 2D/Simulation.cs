@@ -12,7 +12,7 @@ namespace Simulation2D
         public Spawner spawner;
 
         [Header("Time step")]
-        public float maxTimeStepFPS = 60;
+        public float maxTimeStepPerIteration = 0.005f;
         public float iterationsPerFrame = 3;
         [Range(0.01f, 10f)] public float timeMultiplier = 1;
         public bool paused = false;
@@ -27,7 +27,7 @@ namespace Simulation2D
         public float viscosity;
 
         [Header("Optimization")]
-        public int spatialLookupSize = 1000;
+        [Range(0, 13)] public int spatialLookupSize = 10;
 
         public int NumParticles => Positions.Length;
         public Vector2[] Positions { get; private set; }
@@ -39,10 +39,10 @@ namespace Simulation2D
         public Vector2Int[] SpatialHashes { get; private set; }
         public int[] SpatialLookup { get; private set; }
 
-        public Vector2[] sortingPositionsTemp;
-        public Vector2[] sortingVelocitiesTemp;
-        public float[] sortingMassesTemp;
-        public Vector2[] sortingPosDependentAccelerationsTemp;
+        Vector2[] sortingPositionsTemp;
+        Vector2[] sortingVelocitiesTemp;
+        float[] sortingMassesTemp;
+        Vector2[] sortingPosDependentAccelerationsTemp;
 
         bool needsUpdate;
 
@@ -75,7 +75,7 @@ namespace Simulation2D
         {
             needsUpdate = false;
 
-            SpatialLookup = new int[spatialLookupSize];
+            SpatialLookup = new int[1 << spatialLookupSize];
             DoSpatialHashing();
         }
 
@@ -84,8 +84,7 @@ namespace Simulation2D
             if (needsUpdate) UpdateSettings();
             if (paused || smoothingRadius < 0.01) return;
 
-            float maxDt = maxTimeStepFPS > 0 ? 1f / maxTimeStepFPS : float.MaxValue;
-            float dt = Mathf.Min(Time.deltaTime, maxDt) / iterationsPerFrame;
+            float dt = Mathf.Min(Time.deltaTime * timeMultiplier / iterationsPerFrame, maxTimeStepPerIteration);
             for (int i = 0; i < iterationsPerFrame; i++)
             {
                 IterateSimulation(dt);
@@ -290,7 +289,8 @@ namespace Simulation2D
             return force * viscosity;
         }
 
-        void OnValidate() {
+        void OnValidate()
+        {
             needsUpdate = true;
         }
 

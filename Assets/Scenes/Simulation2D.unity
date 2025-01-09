@@ -568,10 +568,6 @@ MonoBehaviour:
   targetDensity: 5
   viscosity: 0.3
   spatialLookupSize: 1000
-  sortingPositionsTemp: []
-  sortingVelocitiesTemp: []
-  sortingMassesTemp: []
-  sortingPosDependentAccelerationsTemp: []
 --- !u!4 &2045742820
 Transform:
   m_ObjectHideFlags: 0
