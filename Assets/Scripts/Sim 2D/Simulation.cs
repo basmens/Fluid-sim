@@ -81,6 +81,7 @@ namespace Simulation2D
 
         void Update()
         {
+            HandleInputs();
             if (needsUpdate) UpdateSettings();
             if (paused || smoothingRadius < 0.01) return;
 
@@ -288,6 +289,33 @@ namespace Simulation2D
                 }
             }
             return force * viscosity;
+        }
+
+        void HandleInputs()
+        {
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                paused = !pauseNextFrame;
+                pauseNextFrame = !pauseNextFrame;
+            }
+            if (Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                paused = false;
+            }
+            if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                timeMultiplier *= Mathf.Sqrt(10);
+                timeMultiplier = Mathf.Clamp(timeMultiplier, 0.01f, 10);
+            }
+            if (Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                timeMultiplier /= Mathf.Sqrt(10);
+                timeMultiplier = Mathf.Clamp(timeMultiplier, 0.01f, 10);
+            }
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                Initialize();
+            }
         }
 
         void OnValidate()
