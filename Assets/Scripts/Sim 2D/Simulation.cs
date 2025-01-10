@@ -27,7 +27,7 @@ namespace Simulation2D
         public float viscosity;
 
         [Header("Optimization")]
-        [Range(0, 13)] public int spatialLookupSize = 10;
+        [Range(3, 13)] public int spatialLookupSize = 10;
 
         public int NumParticles => Positions.Length;
         public Vector2[] Positions { get; private set; }
@@ -194,10 +194,11 @@ namespace Simulation2D
             Profiler.BeginSample("Sort positions, velocities and masses");
             Parallel.For(0, NumParticles, i =>
             {
-                sortingPositionsTemp[i] = Positions[SpatialHashes[i].y];
-                sortingVelocitiesTemp[i] = Velocities[SpatialHashes[i].y];
-                sortingMassesTemp[i] = Masses[SpatialHashes[i].y];
-                sortingPosDependentAccelerationsTemp[i] = PosDependentAccelerations[SpatialHashes[i].y];
+                int originIndex = SpatialHashes[i].y;
+                sortingPositionsTemp[i] = Positions[originIndex];
+                sortingVelocitiesTemp[i] = Velocities[originIndex];
+                sortingMassesTemp[i] = Masses[originIndex];
+                sortingPosDependentAccelerationsTemp[i] = PosDependentAccelerations[originIndex];
             });
             (Positions, sortingPositionsTemp) = (sortingPositionsTemp, Positions);
             (Velocities, sortingVelocitiesTemp) = (sortingVelocitiesTemp, Velocities);
