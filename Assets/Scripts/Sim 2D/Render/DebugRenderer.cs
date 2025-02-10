@@ -1,15 +1,33 @@
+using System;
+using System.Text;
 using System.Threading.Tasks;
+using TMPro;
 using UnityEngine;
 
 namespace Simulation2D
 {
     public class DebugRenderer : RawImageRenderer
     {
-        [Header("Debug")]
-        public DebugView debugView;
+        [Header("Rendering")]
+        public TMP_Text debugText;
+
+        [Header("Debug At Sample")]
+        public bool useParticlePosition;
+        public bool keepParticleOnClick;
+        public bool displayParticleIndex;
+        public bool displayPosition;
+        public bool displayParticleVelocity;
+        public float velocityScale = 1;
+        public bool displayDensity;
         public float densityMultiplier = 0.01f;
-        public bool drawPressureGradients;
-        public float pressureGradientScale = 100;
+        public bool displayPressureForce;
+        public float pressureForceScale = 100;
+
+        [Header("Debug Imaging")]
+        public DebugView debugView;
+        public bool drawPressureForces;
+
+        public static int selectedParticleIndex;
 
         void LateUpdate()
         {
@@ -23,7 +41,7 @@ namespace Simulation2D
                     break;
                 case DebugView.Density:
                     DrawDensities();
-                    if (drawPressureGradients) DrawPressureGradients();
+                    if (drawPressureForces) DrawPressureGradients();
                     break;
                 case DebugView.SpatialGrid:
                     DrawSpatialGrid();
@@ -33,7 +51,60 @@ namespace Simulation2D
                     break;
             }
 
+            DoDebugAtSample();
             texture.Apply();
+        }
+
+        void DoDebugAtSample()
+        {
+            Vector2 screenPos = Input.mousePosition;
+            Vector2 worldPos = MapScreenToWorldSpace(screenPos);
+            if (!keepParticleOnClick || Input.GetMouseButtonDown(0))
+                selectedParticleIndex = GetNearestParticleIndex(worldPos);
+
+            if (useParticlePosition)
+            {
+                worldPos = simulation.Positions[selectedParticleIndex];
+                screenPos = MapWorldToScreenSpace(worldPos);
+            }
+
+            StringBuilder sb = new StringBuilder();
+            if (useParticlePosition && displayParticleIndex)
+                sb.Append($"Particle Index: {selectedParticleIndex}\n");
+
+            if (displayPosition)
+                sb.Append($"Position: {worldPos}\n");
+
+            if (useParticlePosition && displayParticleVelocity)
+                DrawPath(Color.red, screenPos, screenPos + MapWorldToScreenSpaceDir(simulation.Velocities[selectedParticleIndex]) * velocityScale);
+
+            if (displayDensity)
+                sb.Append($"Density: {simulation.CalculateDensity(ref worldPos)}\n");
+
+            if (displayPressureForce)
+            {
+                Vector2 pressureForce = useParticlePosition ? simulation.CalculatePressureForce(selectedParticleIndex)
+                    : CalculatePressureForceAt(ref worldPos);
+                DrawPath(Color.magenta, screenPos, screenPos + MapWorldToScreenSpaceDir(pressureForce) * pressureForceScale);
+            }
+
+            debugText.text = sb.ToString();
+        }
+
+        int GetNearestParticleIndex(Vector2 worldPos)
+        {
+            int index = -1;
+            float dist = float.MaxValue;
+            for (int i = 0; i < simulation.NumParticles; i++)
+            {
+                float distance = (simulation.Positions[i] - worldPos).magnitude;
+                if (distance < dist)
+                {
+                    dist = distance;
+                    index = i;
+                }
+            }
+            return index;
         }
 
         void DrawInterpolateProperty()
@@ -100,7 +171,7 @@ namespace Simulation2D
             for (int i = 0; i < simulation.NumParticles; i++)
             {
                 Vector2 screenPos = MapWorldToScreenSpace(simulation.Positions[i]);
-                Vector2 gradient = simulation.CalculatePressureForce(i) * pressureGradientScale;
+                Vector2 gradient = MapWorldToScreenSpace(simulation.CalculatePressureForce(i)) * pressureForceScale;
                 DrawPath(Color.red, screenPos, screenPos + gradient);
             }
         }
@@ -132,6 +203,31 @@ namespace Simulation2D
                 Vector2 screenPos = MapWorldToScreenSpace(pos);
                 DrawCircle(screenPos, 5, 1, new(1, 0, 0, backgroundColor.a));
             }
+        }
+
+        Vector2 CalculatePressureForceAt(ref Vector2 worldPos)
+        {
+            Vector2 force = Vector2.zero;
+            float densityI = simulation.CalculateDensity(ref worldPos);
+            float pressureI = simulation.DensityToPressure(densityI);
+
+            foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
+            {
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(worldPos, neighbour, simulation.smoothingRadius, simulation.spatialLookupSize);
+                for (int j = simulation.SpatialLookup[wrappedHash];
+                    j < simulation.NumParticles && simulation.SpatialHashes[j].x == wrappedHash; j++)
+                {
+                    Vector2 dir = simulation.Positions[j] - worldPos;
+                    float distance = dir.magnitude;
+                    dir = (distance == 0) ? new(Mathf.Cos(j), Mathf.Sin(j)) : dir / distance;
+
+                    float densityJ = simulation.Densities[j];
+                    float symmetricPressure = simulation.SymmetrizeQuantity(densityI, pressureI, densityJ, simulation.DensityToPressure(densityJ));
+                    float weight = Kernels.DensityKernelSlope(distance, simulation.smoothingRadius);
+                    force += weight * symmetricPressure * dir * simulation.Masses[j] / densityJ;
+                }
+            }
+            return force;
         }
     }
 

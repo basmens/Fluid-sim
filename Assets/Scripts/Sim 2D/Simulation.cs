@@ -1,3 +1,4 @@
+using System.Text;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 using Unity.Profiling;
@@ -177,7 +178,8 @@ namespace Simulation2D
             Profiler.EndSample();
 
             Profiler.BeginSample("Sort spatial hashes");
-            System.Array.Sort(SpatialHashes, (a, b) => a.x - b.x);
+            // System.Array.Sort(SpatialHashes, (a, b) => a.x - b.x);
+            System.Array.Sort(SpatialHashes, (a, b) => a.x == b.x ? a.y - b.y : a.x - b.x); // Easier debugging
             Profiler.EndSample();
 
             Profiler.BeginSample("Generate spatial lookup");
@@ -231,6 +233,11 @@ namespace Simulation2D
             return pressureConstant * (density - targetDensity);
         }
 
+        public float SymmetrizeQuantity(float densityI, float quantityI, float densityJ, float quantityJ)
+        {
+            return quantityI / densityI + quantityJ / Mathf.Pow(densityJ, 2) * densityI;
+        }
+
         public float CalculateDensity(ref Vector2 pos)
         {
             float density = 0;
@@ -250,7 +257,8 @@ namespace Simulation2D
         public Vector2 CalculatePressureForce(int i)
         {
             Vector2 force = Vector2.zero;
-            float pressureI = DensityToPressure(Densities[i]);
+            float densityI = Densities[i];
+            float pressureI = DensityToPressure(densityI);
 
             foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
             {
@@ -263,9 +271,12 @@ namespace Simulation2D
                     float distance = dir.magnitude;
                     dir = (distance == 0) ? new(Mathf.Cos(i + j), Mathf.Sin(i + j)) : dir / distance;
 
-                    float pressure = (pressureI + DensityToPressure(Densities[j])) / 2;
+                    float symmetricPressure = SymmetrizeQuantity(densityI, pressureI, Densities[j], DensityToPressure(Densities[j]));
                     float weight = Kernels.DensityKernelSlope(distance, smoothingRadius);
-                    force += weight * pressure * dir * Masses[j] / Densities[j];
+                    force += weight * symmetricPressure * dir * Masses[j] / Densities[j];
+
+                    if (i == DebugRenderer.selectedParticleIndex && Input.GetMouseButton(1))
+                        Debug.Log($"{i},{j} densities: {densityI}, {Densities[j]}     pressures: {pressureI}, {DensityToPressure(Densities[j])}     force: {weight * symmetricPressure * dir * Masses[j] / Densities[j]}");
                 }
             }
             return force;
@@ -301,6 +312,7 @@ namespace Simulation2D
             if (Input.GetKeyDown(KeyCode.RightArrow))
             {
                 paused = false;
+                pauseNextFrame = true;
             }
             if (Input.GetKeyDown(KeyCode.UpArrow))
             {

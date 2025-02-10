@@ -117,5 +117,15 @@ namespace Simulation2D
         {
             return screenToWorldMatrix.MultiplyPoint(screenPos);
         }
+
+        protected Vector2 MapWorldToScreenSpaceDir(Vector2 worldDir)
+        {
+            return worldToScreenMatrix.MultiplyVector(worldDir);
+        }
+
+        protected Vector2 MapScreenToWorldSpaceDir(Vector2 screenDir)
+        {
+            return screenToWorldMatrix.MultiplyVector(screenDir);
+        }
     }
 }
