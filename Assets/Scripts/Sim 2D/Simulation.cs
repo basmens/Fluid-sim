@@ -1,9 +1,9 @@
-using System.Text;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Profiling;
+using Random = UnityEngine.Random;
 
 namespace Simulation2D
 {
@@ -235,7 +235,7 @@ namespace Simulation2D
 
         public float SymmetrizeQuantity(float densityI, float quantityI, float densityJ, float quantityJ)
         {
-            return quantityI / densityI + quantityJ / Mathf.Pow(densityJ, 2) * densityI;
+            return quantityI / densityI * densityJ + quantityJ / densityJ * densityI;
         }
 
         public float CalculateDensity(ref Vector2 pos)
@@ -274,9 +274,6 @@ namespace Simulation2D
                     float symmetricPressure = SymmetrizeQuantity(densityI, pressureI, Densities[j], DensityToPressure(Densities[j]));
                     float weight = Kernels.DensityKernelSlope(distance, smoothingRadius);
                     force += weight * symmetricPressure * dir * Masses[j] / Densities[j];
-
-                    if (i == DebugRenderer.selectedParticleIndex && Input.GetMouseButton(1))
-                        Debug.Log($"{i},{j} densities: {densityI}, {Densities[j]}     pressures: {pressureI}, {DensityToPressure(Densities[j])}     force: {weight * symmetricPressure * dir * Masses[j] / Densities[j]}");
                 }
             }
             return force;
@@ -302,6 +299,7 @@ namespace Simulation2D
             return force * viscosity;
         }
 
+        // bool prevDown;
         void HandleInputs()
         {
             if (Input.GetKeyDown(KeyCode.Space))
@@ -328,6 +326,25 @@ namespace Simulation2D
             {
                 Initialize();
             }
+
+
+            // if (Input.GetMouseButton(0) && !prevDown)
+            // {
+            //     Vector2 mousePos = Input.mousePosition;
+            //     Vector2 worldPos = Camera.main.ScreenToWorldPoint(mousePos);
+
+            //     float angle = Random.Range(-0.6f, 0.6f) + Mathf.Atan2(gravity.y, gravity.x);
+            //     Vector2 vel = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 20;
+
+            //     int index = Random.Range(0, NumParticles);
+            //     Positions[index] = worldPos;
+            //     Velocities[index] = vel;
+            //     Masses[index] = 100;
+
+            //     UpdateSettings();
+            //     CalculateDensities();
+            // }
+            // prevDown = Input.GetMouseButton(0);
         }
 
         void OnValidate()

@@ -597,7 +597,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   drawGizmos: 1
-  particlesPerAxis: 4
+  particlesPerAxis: 20
   mass: 1
 --- !u!4 &1508534493
 Transform:
@@ -700,9 +700,9 @@ MonoBehaviour:
   pauseNextFrame: 0
   gravity: {x: 0, y: -50}
   collisionDampening: 0.95
-  smoothingRadius: 3
-  pressureConstant: 500
-  targetDensity: 0
+  smoothingRadius: 0.9
+  pressureConstant: 400
+  targetDensity: 4
   viscosity: 0.3
   spatialLookupSize: 10
 --- !u!4 &2045742820
@@ -793,15 +793,15 @@ MonoBehaviour:
   worldCamera: {fileID: 468872544}
   backgroundColor: {r: 0, g: 0, b: 0, a: 0.3137255}
   debugText: {fileID: 549591124}
-  useParticlePosition: 1
+  useParticlePosition: 0
   keepParticleOnClick: 0
   displayParticleIndex: 0
   displayPosition: 0
   displayParticleVelocity: 0
   velocityScale: 1
-  displayDensity: 1
+  displayDensity: 0
   densityMultiplier: 0.1
-  displayPressureForce: 1
+  displayPressureForce: 0
   pressureForceScale: 0.01
   debugView: 0
   drawPressureForces: 0
