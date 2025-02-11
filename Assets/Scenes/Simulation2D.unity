@@ -803,8 +803,9 @@ MonoBehaviour:
   densityMultiplier: 0.1
   displayPressureForce: 0
   pressureForceScale: 0.01
+  displayVelocityLaplacian: 0
+  velocityLaplacianScale: 0.01
   debugView: 0
-  drawPressureForces: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
