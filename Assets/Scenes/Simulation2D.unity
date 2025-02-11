@@ -693,8 +693,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spawner: {fileID: 1508534492}
-  maxTimeStepPerIteration: 0.005
-  iterationsPerFrame: 3
+  maxTimeStepPerIteration: 0.004
+  iterationsPerFrame: 5
   timeMultiplier: 1
   paused: 1
   pauseNextFrame: 0
@@ -702,7 +702,7 @@ MonoBehaviour:
   collisionDampening: 0.95
   smoothingRadius: 0.9
   pressureConstant: 400
-  targetDensity: 4
+  targetDensity: 5
   viscosity: 0.3
   spatialLookupSize: 10
 --- !u!4 &2045742820

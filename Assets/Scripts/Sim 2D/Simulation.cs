@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Unity.Mathematics;
 using Unity.Profiling;
@@ -39,6 +40,7 @@ namespace Simulation2D
         public int[] SpatialLookup { get; private set; }
 
         public float[] Densities { get; private set; }
+        public Vector2[] PositionsShadow { get; private set; }
         public Vector2[] PressureForces { get; private set; }
 
         Vector2[] sortingPositionsTemp;
@@ -63,6 +65,7 @@ namespace Simulation2D
             SpatialLookup = new int[1 << spatialLookupSize];
 
             Densities = new float[NumParticles];
+            PositionsShadow = new Vector2[NumParticles];
             PressureForces = new Vector2[NumParticles];
 
             sortingPositionsTemp = new Vector2[NumParticles];
@@ -100,13 +103,26 @@ namespace Simulation2D
         {
             iterateSimulationProfilerMarker.Begin();
 
-            // Sourced from the SPH Tutorial paper from 2019, algorithm 1
+            // Updated algorithm of the SPH Tutorial paper from 2019, algorithm 1
+            // Apply non-pressure forces on velocities
             DoSpatialHashing();
             ComputeDensities();
-            ApplyExternalForces(dt);
-            ApplyViscosityForces(dt);
+            ApplyNonPressureForces(dt);
+
+            // Predict positions
+            Array.Copy(Positions, PositionsShadow, NumParticles);
+            UpdatePositions(dt);
+
+            // Apply pressure forces on velocities
+            DoSpatialHashing();
+            ComputeDensities();
             ComputePressureForces();
             ApplyPressureForces(dt);
+
+            // Compute actual positions
+            Array.Copy(PositionsShadow, Positions, NumParticles);
+            Parallel.For(0, NumParticles, i => sortingPositionsTemp[i] = Positions[SpatialHashes[i].y]);
+            (Positions, sortingPositionsTemp) = (sortingPositionsTemp, Positions);
             UpdatePositions(dt);
 
             iterateSimulationProfilerMarker.End();
@@ -122,24 +138,14 @@ namespace Simulation2D
             Profiler.EndSample();
         }
 
-        void ApplyExternalForces(float dt)
+        void ApplyNonPressureForces(float dt)
         {
             Profiler.BeginSample("Apply external forces");
             Parallel.For(0, NumParticles, i =>
             {
-                Vector2 externalForceDivMass = ComputeExternalForceDivMass(i);
-                Velocities[i] += externalForceDivMass * dt;
-            });
-            Profiler.EndSample();
-        }
-
-        void ApplyViscosityForces(float dt)
-        {
-            Profiler.BeginSample("Apply viscosity forces");
-            Parallel.For(0, NumParticles, i =>
-            {
-                Vector2 viscosityForceDivMass = viscosity * ComputeVelocityLaplacian(i);
-                Velocities[i] += viscosityForceDivMass * dt;
+                Vector2 nonPressureForceDivMass = ComputeExternalForceDivMass(i);
+                nonPressureForceDivMass += viscosity * ComputeVelocityLaplacian(i); ;
+                Velocities[i] += nonPressureForceDivMass * dt;
             });
             Profiler.EndSample();
         }
@@ -154,7 +160,8 @@ namespace Simulation2D
             Profiler.EndSample();
         }
 
-        void ApplyPressureForces(float dt) {
+        void ApplyPressureForces(float dt)
+        {
             Profiler.BeginSample("Apply pressure forces");
             Parallel.For(0, NumParticles, i =>
             {
@@ -194,8 +201,8 @@ namespace Simulation2D
             Profiler.EndSample();
 
             Profiler.BeginSample("Sort spatial hashes");
-            // System.Array.Sort(SpatialHashes, (a, b) => a.x - b.x);
-            System.Array.Sort(SpatialHashes, (a, b) => a.x == b.x ? a.y - b.y : a.x - b.x); // Easier debugging
+            // Array.Sort(SpatialHashes, (a, b) => a.x - b.x);
+            Array.Sort(SpatialHashes, (a, b) => a.x == b.x ? a.y - b.y : a.x - b.x); // Easier debugging
             Profiler.EndSample();
 
             Profiler.BeginSample("Generate spatial lookup");
@@ -249,7 +256,7 @@ namespace Simulation2D
 
         public float DensityToPressure(float density)
         {
-            return pressureConstant * (density - targetDensity);
+            return pressureConstant * Mathf.Max(density - targetDensity, 0);
         }
 
         public float SymmetrizeQuantity(float densityI, float quantityI, float densityJ, float quantityJ)
@@ -298,16 +305,17 @@ namespace Simulation2D
             return gradient;
         }
 
-        public Vector2 ComputeVelocityLaplacian(int i) {
+        public Vector2 ComputeVelocityLaplacian(int i)
+        {
             Vector2 laplacian = Vector2.zero;
-            
+
             foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
             {
                 int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, spatialLookupSize);
                 for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
                 {
                     if (i == j) continue;
-                    
+
                     Vector2 velDiff = Velocities[i] - Velocities[j];
                     float distance = Mathf.Max((Positions[j] - Positions[i]).magnitude, 0.0001f);
                     float weightSlope = Kernels.RoundedKernelSlope(distance, smoothingRadius);
@@ -323,8 +331,8 @@ namespace Simulation2D
         {
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                paused = !pauseNextFrame;
-                pauseNextFrame = !pauseNextFrame;
+                pauseNextFrame = !paused;
+                paused = !paused;
             }
             if (Input.GetKeyDown(KeyCode.RightArrow))
             {
