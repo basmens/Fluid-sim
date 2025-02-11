@@ -66,6 +66,7 @@ namespace Simulation2D
             {
                 worldPos = simulation.Positions[selectedParticleIndex];
                 screenPos = MapWorldToScreenSpace(worldPos);
+                DrawCircle(screenPos, 5, 1, new(1, 0, 0, 0.4f));
             }
 
             StringBuilder sb = new StringBuilder();
