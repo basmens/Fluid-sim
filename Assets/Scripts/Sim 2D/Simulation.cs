@@ -106,7 +106,7 @@ namespace Simulation2D
             ApplyNonPressureForces(dt);
 
             // Apply pressure forces on velocities
-            PredictDensities(dt);
+            PredictDensities(0.03f);
             ComputePressureForces();
             ApplyPressureForces(dt);
             UpdatePositions(dt);
