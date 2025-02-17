@@ -597,7 +597,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   drawGizmos: 1
-  particlesPerAxis: 20
+  particlesPerAxis: 30
   mass: 1
 --- !u!4 &1508534493
 Transform:
@@ -693,18 +693,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spawner: {fileID: 1508534492}
-  maxTimeStepPerIteration: 0.004
-  iterationsPerFrame: 5
+  iterationsPerFrame: 3
+  scalarCFLCondition: 0.08
   timeMultiplier: 1
   paused: 1
   pauseNextFrame: 0
   gravity: {x: 0, y: -50}
   collisionDampening: 0.95
-  smoothingRadius: 0.9
+  smoothingRadius: 0.8
   pressureConstant: 400
-  targetDensity: 5
+  targetDensity: 9
   viscosity: 0.3
   spatialLookupSize: 10
+  pushRadius: 3
+  pushForce: 1
 --- !u!4 &2045742820
 Transform:
   m_ObjectHideFlags: 0
@@ -775,7 +777,7 @@ MonoBehaviour:
     m_ColorSpace: -1
     m_NumColorKeys: 5
     m_NumAlphaKeys: 2
-  maxVelocity: 14.4
+  maxVelocity: 16
 --- !u!114 &2045742825
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -798,6 +800,7 @@ MonoBehaviour:
   displayParticleIndex: 0
   displayPosition: 0
   displayParticleVelocity: 0
+  displayHighestVelocity: 1
   velocityScale: 1
   displayDensity: 0
   densityMultiplier: 0.1

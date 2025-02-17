@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TMPro;
@@ -17,6 +18,7 @@ namespace Simulation2D
         public bool displayParticleIndex;
         public bool displayPosition;
         public bool displayParticleVelocity;
+        public bool displayHighestVelocity;
         public float velocityScale = 1;
         public bool displayDensity;
         public float densityMultiplier = 0.01f;
@@ -87,6 +89,9 @@ namespace Simulation2D
 
             if (useParticlePosition && displayParticleVelocity)
                 DrawPath(Color.red, screenPos, screenPos + MapWorldToScreenSpaceDir(simulation.Velocities[selectedParticleIndex]) * velocityScale);
+
+            if (displayHighestVelocity)
+                sb.Append($"Highest Velocity: {simulation.Velocities.Max(v => v.magnitude)}\n");
 
             if (displayDensity)
                 sb.Append($"Density: {simulation.ComputeDensity(ref worldPos)}\n");

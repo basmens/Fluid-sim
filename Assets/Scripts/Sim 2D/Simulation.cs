@@ -1,4 +1,4 @@
-using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Unity.Profiling;
 using UnityEngine;
@@ -12,8 +12,8 @@ namespace Simulation2D
         public Spawner spawner;
 
         [Header("Time step")]
-        public float maxTimeStepPerIteration = 0.005f;
         public float iterationsPerFrame = 3;
+        public float scalarCFLCondition = 0.4f;
         [Range(0.01f, 10f)] public float timeMultiplier = 1;
         public bool paused = false;
         public bool pauseNextFrame = false;
@@ -86,7 +86,8 @@ namespace Simulation2D
             if (needsUpdate) UpdateSettings();
             if (paused || smoothingRadius < 0.01) return;
 
-            float dt = Mathf.Min(Time.deltaTime * timeMultiplier / iterationsPerFrame, maxTimeStepPerIteration);
+            float cflMaxTimeStep = scalarCFLCondition * smoothingRadius / Velocities.Max(v => v.magnitude);
+            float dt = Mathf.Min(Time.deltaTime * timeMultiplier / iterationsPerFrame, cflMaxTimeStep);
             for (int i = 0; i < iterationsPerFrame; i++)
             {
                 IterateSimulation(dt);
@@ -198,7 +199,7 @@ namespace Simulation2D
 
             Profiler.BeginSample("Sort spatial hashes");
             // Array.Sort(SpatialHashes, (a, b) => a.x - b.x);
-            Array.Sort(SpatialHashes, (a, b) => a.x == b.x ? a.y - b.y : a.x - b.x); // Easier debugging
+            System.Array.Sort(SpatialHashes, (a, b) => a.x == b.x ? a.y - b.y : a.x - b.x); // Easier debugging
             Profiler.EndSample();
 
             Profiler.BeginSample("Generate spatial lookup");
@@ -345,7 +346,10 @@ namespace Simulation2D
             return -laplacian;
         }
 
-        // bool prevDown;
+        bool prevDownLeft;
+        bool prevDownRight;
+        public float pushRadius = 3f;
+        public float pushForce = 1f;
         void HandleInputs()
         {
             if (Input.GetKeyDown(KeyCode.Space))
@@ -388,6 +392,38 @@ namespace Simulation2D
             //     Masses[index] = 100;
             // }
             // prevDown = Input.GetMouseButton(0);
+
+            // if (Input.GetMouseButton(0) && !prevDownLeft)
+            // {
+            //     Vector2 mousePos = Input.mousePosition;
+            //     Vector2 worldPos = Camera.main.ScreenToWorldPoint(mousePos);
+
+            //     for (int i = 0; i < NumParticles; i++) {
+            //         Vector2 dir = Positions[i] - worldPos;
+            //         float distance = dir.magnitude;
+            //         if (distance > pushRadius) continue;
+            //         dir = (distance == 0) ? new(Mathf.Cos(i), Mathf.Sin(i)) : dir / distance;
+
+            //         Velocities[i] = Kernels.SpikyKernel(distance, pushRadius) * dir * pushForce;
+            //     }
+            // }
+            // prevDownLeft = Input.GetMouseButton(0);
+            
+            // if (Input.GetMouseButton(1) && !prevDownRight)
+            // {
+            //     Vector2 mousePos = Input.mousePosition;
+            //     Vector2 worldPos = Camera.main.ScreenToWorldPoint(mousePos);
+
+            //     for (int i = 0; i < NumParticles; i++) {
+            //         Vector2 dir = Positions[i] - worldPos;
+            //         float distance = dir.magnitude;
+            //         if (distance > pushRadius) continue;
+            //         dir = (distance == 0) ? new(Mathf.Cos(i), Mathf.Sin(i)) : dir / distance;
+
+            //         Velocities[i] = -Kernels.SpikyKernel(distance, pushRadius) * dir * pushForce;
+            //     }
+            // }
+            // prevDownRight = Input.GetMouseButton(1);
         }
 
         void OnValidate()
