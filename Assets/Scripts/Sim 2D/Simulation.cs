@@ -22,7 +22,8 @@ namespace Simulation2D
         public Vector2 gravity = new(0, -9.81f);
         [Range(0, 1)] public float collisionDampening = 0.95f;
         public float smoothingRadius = 0.02f;
-        public float pressureConstant;
+        public float maxDensityDivergence = 0.1f;
+        public float maxVelocityDivergence = 0.1f;
         public float targetDensity;
         public float viscosity;
 
@@ -38,7 +39,11 @@ namespace Simulation2D
         public int[] SpatialLookup { get; private set; }
 
         public float[] Densities { get; private set; }
-        public Vector2[] PressureForces { get; private set; }
+        public Vector2[] AccelerationsNonP { get; private set; }
+        public float[] DfsphFactors { get; private set; }
+        public float[] Pressures { get; private set; }
+        public float[] DensityPredictions { get; private set; }
+        public float[] TimeDerivativeDensities { get; private set; }
 
         Vector2[] sortingPositionsTemp;
         Vector2[] sortingVelocitiesTemp;
@@ -62,14 +67,20 @@ namespace Simulation2D
             SpatialLookup = new int[1 << spatialLookupSize];
 
             Densities = new float[NumParticles];
-            PressureForces = new Vector2[NumParticles];
+            AccelerationsNonP = new Vector2[NumParticles];
+            DfsphFactors = new float[NumParticles];
+            Pressures = new float[NumParticles];
+            DensityPredictions = new float[NumParticles];
+            TimeDerivativeDensities = new float[NumParticles];
 
             sortingPositionsTemp = new Vector2[NumParticles];
             sortingVelocitiesTemp = new Vector2[NumParticles];
             sortingMassesTemp = new float[NumParticles];
 
             UpdateSettings();
-            IterateSimulation(0);
+            UpdateSpatialHashing();
+            UpdateDensities();
+            UpdateDfsphFactors();
         }
 
         void UpdateSettings()
@@ -86,8 +97,7 @@ namespace Simulation2D
             if (needsUpdate) UpdateSettings();
             if (paused || smoothingRadius < 0.01) return;
 
-            float cflMaxTimeStep = scalarCFLCondition * smoothingRadius / Velocities.Max(v => v.magnitude);
-            float dt = Mathf.Min(Time.deltaTime * timeMultiplier / iterationsPerFrame, cflMaxTimeStep);
+            float dt = Time.deltaTime * timeMultiplier / iterationsPerFrame;
             for (int i = 0; i < iterationsPerFrame; i++)
             {
                 IterateSimulation(dt);
@@ -96,73 +106,80 @@ namespace Simulation2D
         }
 
         private static readonly ProfilerMarker iterateSimulationProfilerMarker = new("IterateSimulation");
-        public void IterateSimulation(float dt)
+        public void IterateSimulation(float maxDt)
         {
             iterateSimulationProfilerMarker.Begin();
 
-            // Updated algorithm of the SPH Tutorial paper from 2019, algorithm 1
-            // Apply non-pressure forces on velocities
-            DoSpatialHashing();
-            ComputeDensities();
-            ApplyNonPressureForces(dt);
+            // Algorithm of the SPH Tutorial paper from 2019, algorithm 6
+            // Do non pressure bits and dt
+            ComputeAccelerationsNonP();
+            float cflDt = ComputeCFLConditionDt();
+            float dt = Mathf.Max(Mathf.Min(cflDt, maxDt), 0.001f);
+            dt = 0.001f;
+            ApplyAccelerationsNonP(dt);
 
-            // Apply pressure forces on velocities
-            PredictDensities(dt);
-            ComputePressureForces();
-            ApplyPressureForces(dt);
+            // Apply constant density solver (fix density divergence)
+            ApplyConstantDensitySolver(dt);
             UpdatePositions(dt);
+            UpdateSpatialHashing();
+            UpdateDensities();
+            UpdateDfsphFactors();
+
+            // Apply divergence free solver (fix velocity divergence)
+            ApplyDivergenceFreeSolver(dt);
 
             iterateSimulationProfilerMarker.End();
         }
 
-        void ComputeDensities()
+        void UpdateDensities()
         {
             Profiler.BeginSample("Compute densities");
             Parallel.For(0, NumParticles, i =>
             {
                 Densities[i] = ComputeDensity(ref Positions[i]);
             });
+            Debug.Log($"Average density: {Densities.Average()}");
             Profiler.EndSample();
         }
 
-        void PredictDensities(float dt)
+        float ComputeCFLConditionDt()
         {
-            Profiler.BeginSample("Compute densities");
+            Profiler.BeginSample("Compute Courant-Friedrichs-Lewy condition max dt");
+            float cflDt = float.MaxValue;
+            for (int i = 0; i < NumParticles; i++)
+            {
+                // dt = scaler * radius / maxVel
+                // dt = scaler * radius / (v + a * dt)
+                // a * dt^2 + v * dt - scaler * radius = 0
+                // dt = (-v + sqrt(v^2 - 4 * a * (scaler * radius))) / 2a
+                float v = Velocities[i].magnitude;
+                float a = Mathf.Max(AccelerationsNonP[i].magnitude, 0.0001f);
+                float determinant = Mathf.Max(v * v - 4 * a * (scalarCFLCondition * smoothingRadius), 0);
+                float dt = (-Velocities[i].magnitude + Mathf.Sqrt(determinant)) / 2 / a;
+                if (dt < cflDt) cflDt = dt;
+            }
+            Profiler.EndSample();
+            return cflDt;
+        }
+
+        void ComputeAccelerationsNonP()
+        {
+            Profiler.BeginSample("Compute accelerations non pressure");
             Parallel.For(0, NumParticles, i =>
             {
-                Densities[i] *= 1 - dt * ComputeVelocityDivergence(i);
+                ref Vector2 a = ref AccelerationsNonP[i];
+                a = ComputeAccelerationsExternal(i);
+                a += viscosity * ComputeVelocityLaplacian(i);
             });
             Profiler.EndSample();
         }
 
-        void ApplyNonPressureForces(float dt)
+        void ApplyAccelerationsNonP(float dt)
         {
-            Profiler.BeginSample("Apply external forces");
+            Profiler.BeginSample("Apply accelerations non pressure");
             Parallel.For(0, NumParticles, i =>
             {
-                Vector2 nonPressureForceDivMass = ComputeExternalForceDivMass(i);
-                nonPressureForceDivMass += viscosity * ComputeVelocityLaplacian(i); ;
-                Velocities[i] += nonPressureForceDivMass * dt;
-            });
-            Profiler.EndSample();
-        }
-
-        void ComputePressureForces()
-        {
-            Profiler.BeginSample("Compute pressure forces");
-            Parallel.For(0, NumParticles, i =>
-            {
-                PressureForces[i] = -ComputePressureGradient(i) / Densities[i];
-            });
-            Profiler.EndSample();
-        }
-
-        void ApplyPressureForces(float dt)
-        {
-            Profiler.BeginSample("Apply pressure forces");
-            Parallel.For(0, NumParticles, i =>
-            {
-                Velocities[i] += PressureForces[i] / Masses[i] * dt;
+                Velocities[i] += AccelerationsNonP[i] * dt;
             });
             Profiler.EndSample();
         }
@@ -185,7 +202,62 @@ namespace Simulation2D
             Profiler.EndSample();
         }
 
-        void DoSpatialHashing()
+        void UpdateDfsphFactors()
+        {
+            Profiler.BeginSample("Update dfsph factors");
+            Parallel.For(0, NumParticles, i =>
+            {
+                DfsphFactors[i] = ComputeDfsphFactor(i) * 0.65f; // This 0.65f shouldn't be there, but otherwise the solvers diverge
+            });
+            Profiler.EndSample();
+        }
+
+        public void ApplyConstantDensitySolver(float dt)
+        {
+            Profiler.BeginSample("Apply constant density solver");
+
+            int tmp = 0;
+            for (int iter = 0; iter < 1000 && (iter < 2 || Mathf.Abs(DensityPredictions.Average() / targetDensity - 1) > maxDensityDivergence); iter++)
+            {
+                Parallel.For(0, NumParticles, i =>
+                {
+                    DensityPredictions[i] = Densities[i] + dt * ComputeTimeDerivativeDensity(i);
+                    Pressures[i] = (DensityPredictions[i] - targetDensity) / (dt * dt) * DfsphFactors[i];
+                });
+                Parallel.For(0, NumParticles, i =>
+                {
+                    Velocities[i] -= dt * ComputePressureGradient(i);
+                });
+                tmp = iter;
+            }
+            Debug.Log($"Density divergence: {Mathf.Abs(DensityPredictions.Average() / targetDensity - 1)}   -   {tmp}");
+
+            Profiler.EndSample();
+        }
+
+        public void ApplyDivergenceFreeSolver(float dt)
+        {
+            Profiler.BeginSample("Apply divergence free solver");
+
+            int tmp = 0;
+            for (int iter = 0; iter < 1000 && (iter < 1 || Mathf.Abs(TimeDerivativeDensities.Average()) > maxDensityDivergence); iter++)
+            {
+                Parallel.For(0, NumParticles, i =>
+                {
+                    TimeDerivativeDensities[i] = ComputeTimeDerivativeDensity(i);
+                    Pressures[i] = TimeDerivativeDensities[i] / dt * DfsphFactors[i];
+                });
+                Parallel.For(0, NumParticles, i =>
+                {
+                    Velocities[i] -= dt * ComputePressureGradient(i);
+                });
+            }
+            Debug.Log($"Velocity divergence: {Mathf.Abs(TimeDerivativeDensities.Average())}   -   {tmp}");
+
+            Profiler.EndSample();
+        }
+
+        void UpdateSpatialHashing()
         {
             // Spatial hashing follows the algorithm from Sebastian Lague's video
             // Generate spatial grid
@@ -225,6 +297,13 @@ namespace Simulation2D
             (Positions, sortingPositionsTemp) = (sortingPositionsTemp, Positions);
             (Velocities, sortingVelocitiesTemp) = (sortingVelocitiesTemp, Velocities);
             (Masses, sortingMassesTemp) = (sortingMassesTemp, Masses);
+
+            Parallel.For(0, NumParticles, i =>
+            {
+                int originIndex = SpatialHashes[i].y;
+                sortingMassesTemp[i] = DensityPredictions[originIndex];
+            });
+            (DensityPredictions, sortingMassesTemp) = (sortingMassesTemp, DensityPredictions);
             Profiler.EndSample();
         }
 
@@ -246,19 +325,14 @@ namespace Simulation2D
             vel = LocalToWorld.MultiplyVector(vel);
         }
 
-        public Vector2 ComputeExternalForceDivMass(int i)
+        public Vector2 ComputeAccelerationsExternal(int i)
         {
             return gravity;
         }
 
-        public float DensityToPressure(float density)
-        {
-            return pressureConstant * Mathf.Max(density - targetDensity, 0);
-        }
-
         public float SymmetrizeQuantity(float densityI, float quantityI, float densityJ, float quantityJ)
         {
-            return quantityI / densityI * densityJ + quantityJ / densityJ * densityI;
+            return quantityI / (densityI * densityI) + quantityJ / (densityJ * densityJ);
         }
 
         public float ComputeDensity(ref Vector2 pos)
@@ -280,8 +354,6 @@ namespace Simulation2D
         public Vector2 ComputePressureGradient(int i)
         {
             Vector2 gradient = Vector2.zero;
-            float densityI = Densities[i];
-            float pressureI = DensityToPressure(densityI);
 
             foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
             {
@@ -290,16 +362,33 @@ namespace Simulation2D
                 {
                     if (i == j) continue;
 
-                    Vector2 dir = Positions[j] - Positions[i];
-                    float distance = dir.magnitude;
-                    dir = (distance == 0) ? new(Mathf.Cos(i + j), Mathf.Sin(i + j)) : dir / distance;
-
-                    float symmetricPressure = SymmetrizeQuantity(densityI, pressureI, Densities[j], DensityToPressure(Densities[j]));
+                    (float distance, Vector2 dir) = ComputeDistAndDir(i, j);
+                    float symmetricPressure = SymmetrizeQuantity(Densities[i], Pressures[i], Densities[j], Pressures[j]);
                     float weightSlope = Kernels.SpikyKernelSlope(distance, smoothingRadius);
-                    gradient += Masses[j] / Densities[j] * symmetricPressure * weightSlope * dir;
+                    gradient += Masses[j] * symmetricPressure * weightSlope * dir;
                 }
             }
             return gradient;
+        }
+
+        public float ComputeTimeDerivativeDensity(int i)
+        {
+            float derivative = 0;
+
+            foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
+            {
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, spatialLookupSize);
+                for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
+                {
+                    if (i == j) continue;
+
+                    (float distance, Vector2 dir) = ComputeDistAndDir(i, j);
+                    float weightSlope = Kernels.SpikyKernelSlope(distance, smoothingRadius);
+                    derivative += Masses[j] * weightSlope * Vector2.Dot(Velocities[i] - Velocities[j], dir);
+                }
+            }
+
+            return derivative;
         }
 
         public float ComputeVelocityDivergence(int i)
@@ -313,10 +402,7 @@ namespace Simulation2D
                 {
                     if (i == j) continue;
 
-                    Vector2 dir = Positions[j] - Positions[i];
-                    float distance = dir.magnitude;
-                    dir = (distance == 0) ? new(Mathf.Cos(i + j), Mathf.Sin(i + j)) : dir / distance;
-
+                    (float distance, Vector2 dir) = ComputeDistAndDir(i, j);
                     float weightSlope = Kernels.SpikyKernelSlope(distance, smoothingRadius);
                     divergence += Masses[j] / Densities[j] * weightSlope * Vector2.Dot(Velocities[j], dir);
                 }
@@ -344,6 +430,36 @@ namespace Simulation2D
                 }
             }
             return -laplacian;
+        }
+
+        public float ComputeDfsphFactor(int i)
+        {
+            Vector2 vectorAccumulator = Vector2.zero;
+            float floatAccumulator = 0;
+
+            foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
+            {
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, spatialLookupSize);
+                for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
+                {
+                    if (i == j) continue;
+
+                    (float distance, Vector2 dir) = ComputeDistAndDir(i, j);
+                    float weightSlope = Kernels.SpikyKernelSlope(distance, smoothingRadius);
+                    vectorAccumulator += Masses[j] * weightSlope * dir;
+                    floatAccumulator += Masses[j] * Masses[j] * weightSlope * weightSlope;
+                }
+            }
+
+            return Densities[i] * Densities[i] / (floatAccumulator + vectorAccumulator.sqrMagnitude);
+        }
+
+        public (float, Vector2) ComputeDistAndDir(int i, int j)
+        {
+            Vector2 dir = Positions[j] - Positions[i];
+            float distance = dir.magnitude;
+            dir = (distance == 0) ? new(Mathf.Cos(i + j), Mathf.Sin(i + j)) : dir / distance;
+            return (distance, dir);
         }
 
         bool prevDownLeft;
@@ -408,7 +524,7 @@ namespace Simulation2D
             //     }
             // }
             // prevDownLeft = Input.GetMouseButton(0);
-            
+
             // if (Input.GetMouseButton(1) && !prevDownRight)
             // {
             //     Vector2 mousePos = Input.mousePosition;

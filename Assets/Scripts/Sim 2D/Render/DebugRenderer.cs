@@ -96,18 +96,18 @@ namespace Simulation2D
             if (displayDensity)
                 sb.Append($"Density: {simulation.ComputeDensity(ref worldPos)}\n");
 
-            if (displayPressureForce)
-            {
-                Vector2 pressureForce = useParticlePosition ? simulation.PressureForces[selectedParticleIndex]
-                    : CalculatePressureForceAt(ref worldPos);
-                DrawPath(Color.magenta, screenPos, screenPos + MapWorldToScreenSpaceDir(pressureForce) * pressureForceScale);
-            }
+            // if (displayPressureForce)
+            // {
+            //     Vector2 pressureForce = useParticlePosition ? simulation.PressureForces[selectedParticleIndex]
+            //         : CalculatePressureForceAt(ref worldPos);
+            //     DrawPath(Color.magenta, screenPos, screenPos + MapWorldToScreenSpaceDir(pressureForce) * pressureForceScale);
+            // }
 
             if (displayVelocityLaplacian)
             {
                 Vector2 velocityLaplacian = useParticlePosition ? simulation.ComputeVelocityLaplacian(selectedParticleIndex)
                     : CalculateVelocityLaplacianAt(ref worldPos);
-                DrawPath(Color.yellow, screenPos, screenPos + MapWorldToScreenSpaceDir(velocityLaplacian) * pressureForceScale);
+                DrawPath(Color.yellow, screenPos, screenPos + MapWorldToScreenSpaceDir(velocityLaplacian) * velocityLaplacianScale);
             }
 
             debugText.text = sb.ToString();
@@ -174,7 +174,6 @@ namespace Simulation2D
 
         void DrawDensities()
         {
-            simulation.IterateSimulation(0);
             Color[] pixels = new Color[width * height];
             Parallel.For(0, width, x =>
             {
@@ -190,12 +189,12 @@ namespace Simulation2D
 
         void DrawPressureGradients()
         {
-            for (int i = 0; i < simulation.NumParticles; i++)
-            {
-                Vector2 screenPos = MapWorldToScreenSpace(simulation.Positions[i]);
-                Vector2 gradient = MapWorldToScreenSpace(simulation.PressureForces[i]) * pressureForceScale;
-                DrawPath(Color.red, screenPos, screenPos + gradient);
-            }
+            // for (int i = 0; i < simulation.NumParticles; i++)
+            // {
+            //     Vector2 screenPos = MapWorldToScreenSpace(simulation.Positions[i]);
+            //     Vector2 gradient = MapWorldToScreenSpace(simulation.PressureForces[i]) * pressureForceScale;
+            //     DrawPath(Color.red, screenPos, screenPos + gradient);
+            // }
         }
 
         void DrawVelocityLaplacians()
@@ -210,8 +209,6 @@ namespace Simulation2D
 
         void DrawSpatialGrid()
         {
-            simulation.IterateSimulation(0);
-
             Vector2 mouseWorld = MapScreenToWorldSpace(Input.mousePosition);
             int wrappedHashAtMouse = SpatialGridHelper.CalcWrappedHash(mouseWorld, simulation.smoothingRadius, simulation.spatialLookupSize);
 
@@ -237,30 +234,30 @@ namespace Simulation2D
             }
         }
 
-        Vector2 CalculatePressureForceAt(ref Vector2 worldPos)
-        {
-            Vector2 force = Vector2.zero;
-            float densityI = simulation.ComputeDensity(ref worldPos);
-            float pressureI = simulation.DensityToPressure(densityI);
+        // Vector2 CalculatePressureForceAt(ref Vector2 worldPos)
+        // {
+        //     Vector2 force = Vector2.zero;
+        //     float densityI = simulation.ComputeDensity(ref worldPos);
+        //     float pressureI = simulation.DensityToPressure(densityI);
 
-            foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
-            {
-                int wrappedHash = SpatialGridHelper.CalcWrappedHash(worldPos, neighbour, simulation.smoothingRadius, simulation.spatialLookupSize);
-                for (int j = simulation.SpatialLookup[wrappedHash];
-                    j < simulation.NumParticles && simulation.SpatialHashes[j].x == wrappedHash; j++)
-                {
-                    Vector2 dir = simulation.Positions[j] - worldPos;
-                    float distance = dir.magnitude;
-                    if (distance == 0) continue;
+        //     foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
+        //     {
+        //         int wrappedHash = SpatialGridHelper.CalcWrappedHash(worldPos, neighbour, simulation.smoothingRadius, simulation.spatialLookupSize);
+        //         for (int j = simulation.SpatialLookup[wrappedHash];
+        //             j < simulation.NumParticles && simulation.SpatialHashes[j].x == wrappedHash; j++)
+        //         {
+        //             Vector2 dir = simulation.Positions[j] - worldPos;
+        //             float distance = dir.magnitude;
+        //             if (distance == 0) continue;
 
-                    float densityJ = simulation.Densities[j];
-                    float symmetricPressure = simulation.SymmetrizeQuantity(densityI, pressureI, densityJ, simulation.DensityToPressure(densityJ));
-                    float weight = Kernels.SpikyKernelSlope(distance, simulation.smoothingRadius);
-                    force += weight * symmetricPressure * dir * simulation.Masses[j] / densityJ;
-                }
-            }
-            return force;
-        }
+        //             float densityJ = simulation.Densities[j];
+        //             float symmetricPressure = simulation.SymmetrizeQuantity(densityI, pressureI, densityJ, simulation.DensityToPressure(densityJ));
+        //             float weight = Kernels.SpikyKernelSlope(distance, simulation.smoothingRadius);
+        //             force += weight * symmetricPressure * dir * simulation.Masses[j] / densityJ;
+        //         }
+        //     }
+        //     return force;
+        // }
 
         Vector2 CalculateVelocityLaplacianAt(ref Vector2 worldPos)
         {

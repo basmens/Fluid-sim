@@ -59,11 +59,15 @@
     "dotnet.defaultSolution": "Fluid sim.sln",
     "cSpell.words": [
         "Coloring",
+        "Courant",
+        "Dfsph",
         "ENDHLSL",
         "frag",
+        "Friedrichs",
         "fwidth",
         "HLSLPROGRAM",
         "Lague's",
+        "Lewy",
         "Mathf",
         "smoothstep"
     ]
