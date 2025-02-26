@@ -10,7 +10,7 @@ namespace Simulation2D
 
         [Header("Spawner")]
         public int particlesPerAxis;
-        public float mass = 1f;
+        public float totalMass = 100f;
 
         public override SpawnData Spawn()
         {
@@ -19,6 +19,7 @@ namespace Simulation2D
             Vector2[] velocities = new Vector2[numParticles];
             float[] masses = new float[numParticles];
 
+            float mass = totalMass / numParticles;
             int i = 0;
             for (int x = 0; x < particlesPerAxis; x++)
             {

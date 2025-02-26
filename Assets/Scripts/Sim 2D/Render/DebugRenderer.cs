@@ -93,8 +93,8 @@ namespace Simulation2D
             if (displayHighestVelocity)
                 sb.Append($"Highest Velocity: {simulation.Velocities.Max(v => v.magnitude)}\n");
 
-            if (displayDensity)
-                sb.Append($"Density: {simulation.ComputeDensity(ref worldPos)}\n");
+            if (displayDensity && useParticlePosition)
+                sb.Append($"Density: {simulation.ComputeDensity(selectedParticleIndex)}\n");
 
             // if (displayPressureForce)
             // {
@@ -109,6 +109,26 @@ namespace Simulation2D
                     : CalculateVelocityLaplacianAt(ref worldPos);
                 DrawPath(Color.yellow, screenPos, screenPos + MapWorldToScreenSpaceDir(velocityLaplacian) * velocityLaplacianScale);
             }
+
+            // {
+            //     float density = 0;
+            //     worldPos = simulation.Positions[selectedParticleIndex];
+            //     foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
+            //     {
+            //         int wrappedHash = SpatialGridHelper.CalcWrappedHash(worldPos, neighbour, simulation.smoothingRadius, simulation.spatialLookupSize);
+            //         for (int j = simulation.SpatialLookup[wrappedHash];
+            //             j < simulation.NumParticles && simulation.SpatialHashes[j].x == wrappedHash; j++)
+            //         {
+            //             float dist = (simulation.Positions[j] - worldPos).magnitude;
+            //             if (dist > simulation.smoothingRadius) continue;
+
+            //             density += simulation.Masses[j] * Kernels.SpikyKernel(dist, simulation.smoothingRadius);
+            //             screenPos = MapWorldToScreenSpace(simulation.Positions[j]);
+            //             DrawCircle(screenPos, 5, 1, new(1, 0, 0, 0.4f));
+            //         }
+            //     }
+            //     Debug.Log($"Density: {density}");
+            // }
 
             debugText.text = sb.ToString();
         }
@@ -180,7 +200,8 @@ namespace Simulation2D
                 for (int y = 0; y < height; y++)
                 {
                     Vector2 pos = MapScreenToWorldSpace(new(x, y));
-                    float density = simulation.ComputeDensity(ref pos) * densityMultiplier;
+                    // float density = simulation.ComputeDensity(ref pos) * densityMultiplier;
+                    float density = 0;
                     pixels[x + width * y] = new(density, density, density);
                 }
             });

@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using UnityEngine;
 
 namespace Simulation2D
@@ -25,6 +26,8 @@ namespace Simulation2D
         public Color staticParticleColor = Color.blue;
         public Gradient velocityColorGradient;
         public float maxVelocity = 100;
+        public Gradient densityColorGradient;
+        public float maxDensityFactor = 10;
 
         bool needsUpdate = true;
         Material material;
@@ -32,6 +35,8 @@ namespace Simulation2D
         RenderParams renderParams;
         ComputeBuffer positionsBuffer;
         ComputeBuffer velocitiesBuffer;
+
+        ComputeBuffer densitiesBuffer;
 
 
         void Start()
@@ -52,8 +57,12 @@ namespace Simulation2D
             // Update buffers
             positionsBuffer.SetData(simulation.Positions);
             velocitiesBuffer.SetData(simulation.Velocities);
-            material.SetBuffer("_Positions", positionsBuffer);
-            material.SetBuffer("_Velocities", velocitiesBuffer);
+
+            if (particleColorSource == ParticleColorSource.Density)
+            {
+                densitiesBuffer.SetData(simulation.Densities);
+                material.SetFloat("_PropertyTarget", simulation.targetDensity);
+            }
 
             // Render particles
             // material.SetMatrix("_BillboardMatrix", Matrix4x4.Rotate(worldCamera.transform.rotation).inverse);
@@ -74,9 +83,14 @@ namespace Simulation2D
             DiscernColoringProperty();
 
             if (positionsBuffer != null) return;
-            int stride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2));
+            int stride = Marshal.SizeOf(typeof(Vector2));
             positionsBuffer = new(simulation.NumParticles, stride);
             velocitiesBuffer = new(simulation.NumParticles, stride);
+            densitiesBuffer = new(simulation.NumParticles, Marshal.SizeOf(typeof(float)));
+            
+            material.SetBuffer("_Positions", positionsBuffer);
+            material.SetBuffer("_Velocities", velocitiesBuffer);
+            material.SetBuffer("_Densities", densitiesBuffer);
         }
 
         void DiscernColoringProperty()
@@ -92,8 +106,13 @@ namespace Simulation2D
                     GenerateColoringTexture(coloringTextureResolution, v => velocityColorGradient.Evaluate(v));
                     material.SetTexture("_ColoringTexture", coloringTexture);
                     material.SetInteger("_ColoringProperty", 1);
-                    material.SetFloat("_PropertyMin", 0);
                     material.SetFloat("_PropertyMax", maxVelocity);
+                    break;
+                case ParticleColorSource.Density:
+                    GenerateColoringTexture(coloringTextureResolution, v => densityColorGradient.Evaluate(v));
+                    material.SetTexture("_ColoringTexture", coloringTexture);
+                    material.SetInteger("_ColoringProperty", 2);
+                    material.SetFloat("_PropertyMax", maxDensityFactor);
                     break;
             }
         }
@@ -126,6 +145,7 @@ namespace Simulation2D
     public enum ParticleColorSource
     {
         Static,
-        Velocity
+        Velocity,
+        Density
     }
 }

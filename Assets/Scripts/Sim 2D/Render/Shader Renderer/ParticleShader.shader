@@ -19,14 +19,16 @@ Shader "Instanced/ParticleShader" {
 
             static const uint STATIC_COLOR = 0;
             static const uint VELOCITY_COLOR = 1;
+            static const uint DENSITY_COLOR = 2;
 
             SamplerState linear_clamp_sampler;
             // float4x4 _BillboardMatrix;
             StructuredBuffer<float2> _Positions;
             StructuredBuffer<float2> _Velocities;
+            StructuredBuffer<float> _Densities;
             
             Texture2D<float4> _ColoringTexture;
-            float _PropertyMin;
+            float _PropertyTarget;
             float _PropertyMax;
             uint _ColoringProperty;
 
@@ -44,7 +46,10 @@ Shader "Instanced/ParticleShader" {
                     case STATIC_COLOR:
                         return 0.5f;
                     case VELOCITY_COLOR:
-                        return (length(_Velocities[instanceID]) - _PropertyMin) / (_PropertyMax - _PropertyMin);
+                        return length(_Velocities[instanceID]) / _PropertyMax;
+                    case DENSITY_COLOR:
+                        float exponent = log(2) / log(_PropertyMax);
+                        return pow(_Densities[instanceID] / _PropertyTarget, exponent) / 2;
                     default:
                         return 0;
                 }

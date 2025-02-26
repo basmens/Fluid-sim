@@ -43,7 +43,7 @@ namespace Simulation2D
         public float[] DfsphFactors { get; private set; }
         public float[] Pressures { get; private set; }
         public float[] DensityPredictions { get; private set; }
-        public float[] TimeDerivativeDensities { get; private set; }
+        public float[] MaterialDerivativeDensities { get; private set; }
 
         Vector2[] sortingPositionsTemp;
         Vector2[] sortingVelocitiesTemp;
@@ -71,7 +71,7 @@ namespace Simulation2D
             DfsphFactors = new float[NumParticles];
             Pressures = new float[NumParticles];
             DensityPredictions = new float[NumParticles];
-            TimeDerivativeDensities = new float[NumParticles];
+            MaterialDerivativeDensities = new float[NumParticles];
 
             sortingPositionsTemp = new Vector2[NumParticles];
             sortingVelocitiesTemp = new Vector2[NumParticles];
@@ -125,8 +125,8 @@ namespace Simulation2D
             UpdateDensities();
             UpdateDfsphFactors();
 
-            // Apply divergence free solver (fix velocity divergence)
-            ApplyDivergenceFreeSolver(dt);
+            // // Apply divergence free solver (fix velocity divergence)
+            // ApplyDivergenceFreeSolver(dt);
 
             iterateSimulationProfilerMarker.End();
         }
@@ -136,7 +136,7 @@ namespace Simulation2D
             Profiler.BeginSample("Compute densities");
             Parallel.For(0, NumParticles, i =>
             {
-                Densities[i] = ComputeDensity(ref Positions[i]);
+                Densities[i] = ComputeDensity(i);
             });
             Debug.Log($"Average density: {Densities.Average()}");
             Profiler.EndSample();
@@ -217,18 +217,24 @@ namespace Simulation2D
             Profiler.BeginSample("Apply constant density solver");
 
             int tmp = 0;
-            for (int iter = 0; iter < 1000 && (iter < 2 || Mathf.Abs(DensityPredictions.Average() / targetDensity - 1) > maxDensityDivergence); iter++)
+            float avgDivergence = float.MaxValue;
+            float lowestAvgDivergence = float.MaxValue;
+            for (int iter = 0; iter < 1000 && (iter < 2 || avgDivergence > maxDensityDivergence); iter++)
             {
+                tmp = iter;
                 Parallel.For(0, NumParticles, i =>
                 {
-                    DensityPredictions[i] = Densities[i] + dt * ComputeTimeDerivativeDensity(i);
+                    DensityPredictions[i] = Densities[i] + dt * ComputeMaterialDerivativeDensity(i);
                     Pressures[i] = (DensityPredictions[i] - targetDensity) / (dt * dt) * DfsphFactors[i];
                 });
                 Parallel.For(0, NumParticles, i =>
                 {
                     Velocities[i] -= dt * ComputePressureGradient(i);
                 });
-                tmp = iter;
+
+                avgDivergence = Mathf.Abs(DensityPredictions.Average() / targetDensity - 1);
+                if (avgDivergence < lowestAvgDivergence) lowestAvgDivergence = avgDivergence;
+                if (lowestAvgDivergence * 1.1 < avgDivergence) break;
             }
             Debug.Log($"Density divergence: {Mathf.Abs(DensityPredictions.Average() / targetDensity - 1)}   -   {tmp}");
 
@@ -240,19 +246,19 @@ namespace Simulation2D
             Profiler.BeginSample("Apply divergence free solver");
 
             int tmp = 0;
-            for (int iter = 0; iter < 1000 && (iter < 1 || Mathf.Abs(TimeDerivativeDensities.Average()) > maxDensityDivergence); iter++)
+            for (int iter = 0; iter < 1000 && (iter < 1 || Mathf.Abs(MaterialDerivativeDensities.Average()) > maxDensityDivergence); iter++)
             {
                 Parallel.For(0, NumParticles, i =>
                 {
-                    TimeDerivativeDensities[i] = ComputeTimeDerivativeDensity(i);
-                    Pressures[i] = TimeDerivativeDensities[i] / dt * DfsphFactors[i];
+                    MaterialDerivativeDensities[i] = ComputeMaterialDerivativeDensity(i);
+                    Pressures[i] = MaterialDerivativeDensities[i] / dt * DfsphFactors[i];
                 });
                 Parallel.For(0, NumParticles, i =>
                 {
                     Velocities[i] -= dt * ComputePressureGradient(i);
                 });
             }
-            Debug.Log($"Velocity divergence: {Mathf.Abs(TimeDerivativeDensities.Average())}   -   {tmp}");
+            Debug.Log($"Velocity divergence: {Mathf.Abs(MaterialDerivativeDensities.Average())}   -   {tmp}");
 
             Profiler.EndSample();
         }
@@ -298,6 +304,7 @@ namespace Simulation2D
             (Velocities, sortingVelocitiesTemp) = (sortingVelocitiesTemp, Velocities);
             (Masses, sortingMassesTemp) = (sortingMassesTemp, Masses);
 
+            // For debugging
             Parallel.For(0, NumParticles, i =>
             {
                 int originIndex = SpatialHashes[i].y;
@@ -335,17 +342,19 @@ namespace Simulation2D
             return quantityI / (densityI * densityI) + quantityJ / (densityJ * densityJ);
         }
 
-        public float ComputeDensity(ref Vector2 pos)
+        public float ComputeDensity(int i)
         {
             float density = 0;
             foreach (Vector2 neighbour in SpatialGridHelper.Neighbors)
             {
-                int wrappedHash = SpatialGridHelper.CalcWrappedHash(pos, neighbour, smoothingRadius, spatialLookupSize);
-                for (int i = SpatialLookup[wrappedHash]; i < NumParticles && SpatialHashes[i].x == wrappedHash; i++)
+                int wrappedHash = SpatialGridHelper.CalcWrappedHash(Positions[i], neighbour, smoothingRadius, spatialLookupSize);
+                for (int j = SpatialLookup[wrappedHash]; j < NumParticles && SpatialHashes[j].x == wrappedHash; j++)
                 {
-                    float distance = (Positions[i] - pos).magnitude;
+                    // if (i == j) continue;
+
+                    float distance = (Positions[j] - Positions[i]).magnitude;
                     float weight = Kernels.SpikyKernel(distance, smoothingRadius);
-                    density += Masses[i] * weight;
+                    density += Masses[j] * weight;
                 }
             }
             return density;
@@ -371,7 +380,7 @@ namespace Simulation2D
             return gradient;
         }
 
-        public float ComputeTimeDerivativeDensity(int i)
+        public float ComputeMaterialDerivativeDensity(int i)
         {
             float derivative = 0;
 
@@ -451,7 +460,7 @@ namespace Simulation2D
                 }
             }
 
-            return Densities[i] * Densities[i] / (floatAccumulator + vectorAccumulator.sqrMagnitude);
+            return Densities[i] * Densities[i] / Mathf.Max(floatAccumulator + vectorAccumulator.sqrMagnitude, 1e-6f);
         }
 
         public (float, Vector2) ComputeDistAndDir(int i, int j)

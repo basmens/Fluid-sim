@@ -597,8 +597,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   drawGizmos: 1
-  particlesPerAxis: 30
-  mass: 1
+  particlesPerAxis: 20
+  totalMass: 100
 --- !u!4 &1508534493
 Transform:
   m_ObjectHideFlags: 0
@@ -660,7 +660,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   drawGizmos: 0
   numParticles: 400
-  mass: 1
+  totalMass: 1
 --- !u!1 &2045742817
 GameObject:
   m_ObjectHideFlags: 0
@@ -703,7 +703,7 @@ MonoBehaviour:
   smoothingRadius: 0.8
   maxDensityDivergence: 0.001
   maxVelocityDivergence: 0.001
-  targetDensity: 9
+  targetDensity: 1
   viscosity: 0.3
   spatialLookupSize: 10
   pushRadius: 3
@@ -779,6 +779,37 @@ MonoBehaviour:
     m_NumColorKeys: 5
     m_NumAlphaKeys: 2
   maxVelocity: 16
+  densityColorGradient:
+    serializedVersion: 2
+    key0: {r: 0.055604786, g: 0.03030968, b: 0.3735848, a: 1}
+    key1: {r: 1, g: 0.64705884, b: 0.9848127, a: 1}
+    key2: {r: 1, g: 0.011764705, b: 0.82710624, a: 0}
+    key3: {r: 0, g: 0.23137255, b: 1, a: 0}
+    key4: {r: 0, g: 0.82807636, b: 1, a: 0}
+    key5: {r: 1, g: 0.9152552, b: 0, a: 0}
+    key6: {r: 1, g: 0.16552424, b: 0.017557513, a: 0}
+    key7: {r: 1, g: 1, b: 1, a: 0}
+    ctime0: 0
+    ctime1: 8867
+    ctime2: 25829
+    ctime3: 32768
+    ctime4: 34772
+    ctime5: 39552
+    ctime6: 52505
+    ctime7: 65535
+    atime0: 0
+    atime1: 65535
+    atime2: 0
+    atime3: 0
+    atime4: 0
+    atime5: 0
+    atime6: 0
+    atime7: 0
+    m_Mode: 0
+    m_ColorSpace: -1
+    m_NumColorKeys: 8
+    m_NumAlphaKeys: 2
+  maxDensityFactor: 10
 --- !u!114 &2045742825
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -796,11 +827,11 @@ MonoBehaviour:
   worldCamera: {fileID: 468872544}
   backgroundColor: {r: 0, g: 0, b: 0, a: 0.3137255}
   debugText: {fileID: 549591124}
-  useParticlePosition: 0
+  useParticlePosition: 1
   keepParticleOnClick: 0
-  displayParticleIndex: 0
+  displayParticleIndex: 1
   displayPosition: 0
-  displayParticleVelocity: 0
+  displayParticleVelocity: 1
   displayHighestVelocity: 1
   velocityScale: 1
   displayDensity: 0

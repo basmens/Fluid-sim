@@ -10,7 +10,7 @@ namespace Simulation2D
 
         [Header("Spawner")]
         public int numParticles;
-        public float mass = 1f;
+        public float totalMass = 1f;
 
         public override SpawnData Spawn()
         {
@@ -18,6 +18,7 @@ namespace Simulation2D
             Vector2[] velocities = new Vector2[numParticles];
             float[] masses = new float[numParticles];
 
+            float mass = totalMass / numParticles;
             for (int i = 0; i < numParticles; i++)
             {
                 float x = Random.Range(-0.5f, 0.5f);
