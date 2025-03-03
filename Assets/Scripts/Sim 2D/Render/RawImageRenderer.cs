@@ -60,10 +60,13 @@ namespace Simulation2D
             foreach (Vector2 point in points)
             {
                 // Times 1.05 to fill some gaps that might just sneak through
-                float dist = (point - prevPoint).magnitude * 1.05f;
+                Vector2 dir = (point - prevPoint).normalized;
+                Vector2 p1 = ClampWithinBounds(point, dir);
+                Vector2 p2 = ClampWithinBounds(prevPoint, dir);
+                float dist = (p1 - p2).magnitude * 1.05f;
                 for (int t = 0; t < dist; t++)
                 {
-                    Vector2 p = Vector2.Lerp(prevPoint, point, t / dist);
+                    Vector2 p = Vector2.Lerp(p2, p1, t / dist);
                     if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < height)
                         texture.SetPixel((int)p.x, (int)p.y, color);
                 }
@@ -96,6 +99,42 @@ namespace Simulation2D
                     texture.SetPixel(x, y, fadedColor);
                 }
             }
+        }
+
+        protected Vector2 ClampWithinBounds(Vector2 position, Vector2 dir)
+        {
+            if (position.x < 0) {
+                Vector2 newPos = LineLineIntersect(Vector2.zero, Vector2.up, position, dir);
+                if (newPos != Vector2.negativeInfinity) position = newPos;
+            }
+            if (position.x >= width) {
+                Vector2 newPos = LineLineIntersect(Vector2.right * width, Vector2.up, position, dir);
+                if (newPos != Vector2.negativeInfinity) position = newPos;
+            }
+            if (position.y < 0) {
+                Vector2 newPos = LineLineIntersect(Vector2.zero, Vector2.right, position, dir);
+                if (newPos != Vector2.negativeInfinity) position = newPos;
+            }
+            if (position.y >= height) {
+                Vector2 newPos = LineLineIntersect(Vector2.up * height, Vector2.right, position, dir);
+                if (newPos != Vector2.negativeInfinity) position = newPos;
+            }
+            return position;
+        }
+
+        protected Vector2 LineLineIntersect(Vector2 anchor1, Vector2 dir1, Vector2 anchor2, Vector2 dir2)
+        {
+            // Solve the formula for t1:
+            // [dx1, -dx2] * [t1] = [x2 - x1]
+            // [dy1, -dy2]   [t2] = [y2 - y1]
+            // So
+            // [t1] = 1/D * [-dy2, dx2] * [x2 - x1]
+            // [t2]         [-dy1, dx1]   [y2 - y1]
+
+            float determinant = dir1.x * -dir2.y - dir1.y * -dir2.x;
+            if (determinant == 0) return Vector2.negativeInfinity;
+            float t1 = (-dir2.y * (anchor2.x - anchor1.x) + dir2.x * (anchor2.y - anchor1.y)) / determinant;
+            return anchor1 + t1 * dir1;
         }
 
         protected Color ColorSmoothStep(Color from, Color to, float t)

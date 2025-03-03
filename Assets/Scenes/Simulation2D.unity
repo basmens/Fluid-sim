@@ -392,6 +392,63 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 549591122}
   m_CullTransparentMesh: 1
+--- !u!1 &716158111
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 716158113}
+  - component: {fileID: 716158112}
+  m_Layer: 0
+  m_Name: Debug Spawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &716158112
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 716158111}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3af257e480f1b5547892c1d2cdc392f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  drawGizmos: 1
+  particlesPerAxis: 0
+  totalMass: 1
+  numParticles: 2
+  positions:
+  - {x: -0.3, y: 0}
+  - {x: 0.3, y: 0}
+  velocities:
+  - {x: 0, y: 0}
+  - {x: 0, y: 0}
+  masses:
+  - 0.5
+  - 0.5
+--- !u!4 &716158113
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 716158111}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2045742820}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &790691356
 GameObject:
   m_ObjectHideFlags: 0
@@ -692,7 +749,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f95adba85e974fb4f97a7a64be4ca595, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  spawner: {fileID: 1508534492}
+  spawner: {fileID: 716158112}
   iterationsPerFrame: 1
   scalarCFLCondition: 0.08
   timeMultiplier: 0.01
@@ -722,6 +779,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1508534493}
+  - {fileID: 716158113}
   - {fileID: 1748138476}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
